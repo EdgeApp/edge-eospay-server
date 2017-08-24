@@ -1,0 +1,7 @@
+{
+  "dbFullpath": "http://username:password@localhost:5984",
+  "sslPrivateKeyPath": "",
+  "sslCertPath": "",
+  "httpPort": 8087,
+  "httpsPort": 8444
+}
