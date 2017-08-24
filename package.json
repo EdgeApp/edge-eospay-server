@@ -29,6 +29,7 @@
     "express": "~4.0.0",
     "jsonschema": "^1.1.1",
     "nano": "^6.2.0",
+    "node-fetch": "^1.7.2",
     "random-js": "^1.0.8",
     "sprintf-js": "^1.1.1"
   },
