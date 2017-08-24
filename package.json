@@ -2,7 +2,7 @@
   "name": "edge-info-server",
   "version": "1.0.0",
   "description": "Info Server for Edge Wallet and SDK",
-  "main": "lib/indexAuth.js",
+  "main": "lib/indexInfo.js",
   "repository": {
     "type": "git",
     "url": "git+ssh://git@github.com/Airbitz/edge-auth-server.git"

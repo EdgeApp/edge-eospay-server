@@ -83,7 +83,7 @@ router.get('/currencyInfo/:currencyCode', function (req, res) {
   })
 })
 
-router.get('/electrumServers:currencyCode', function (req, res) {
+router.get('/electrumServers/:currencyCode', function (req, res) {
   mylog('API /electrumServers/' + req.params.currencyCode)
   dbAuth.get('electrumServers', function (err, electrumServers) {
     if (err) {
@@ -99,7 +99,7 @@ router.get('/electrumServers:currencyCode', function (req, res) {
   })
 })
 
-router.get('/networkFees:currencyCode', function (req, res) {
+router.get('/networkFees/:currencyCode', function (req, res) {
   mylog('API /networkFees/' + req.params.currencyCode)
   dbAuth.get('networkFees', function (err, networkFees) {
     if (err) {
