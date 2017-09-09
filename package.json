@@ -30,6 +30,7 @@
     "jsonschema": "^1.1.1",
     "nano": "^6.2.0",
     "node-fetch": "^1.7.2",
+    "promisify-node": "^0.4.0",
     "random-js": "^1.0.8",
     "sprintf-js": "^1.1.1"
   },
@@ -56,12 +57,12 @@
     ]
   },
   "scripts": {
-    "precommit": "npm run built",
+    "precommit": "npm run build",
     "flow": "flow",
     "webpack": "webpack",
-    "rollup": "rollup -c",
+    "rollup": "rollup -c && rollup -c rollup.config.checkServers.js",
     "updot": "updot",
-    "start": "node lib/indexAuth.js",
+    "start": "node lib/indexInfo.js",
     "build": "npm run lint && npm run rollup && npm run flow",
     "built": "npm run build && npm run test",
     "cover": "nyc --reporter=lcov --reporter=text --reporter=html --extension .js npm test",

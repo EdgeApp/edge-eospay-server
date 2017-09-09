@@ -10,14 +10,20 @@ import express from 'express'        // call express
 import bodyParser from 'body-parser'
 import cors from 'cors'
 import nano from 'nano'
-import promisifyAll from 'es6-promisify-all'
+import promisify from 'promisify-node'
+import { checkServers } from './checkServers.js'
 
 const CONFIG = require('../serverConfig.json')
+const LOOP_DELAY_MS = 1000 * 60 * 60 // Delay an hour between checks
 
 // call the packages we need
 const app = express()                 // define our app using express
 
 const mylog = console.log
+
+function snooze (ms:number) {
+  return new Promise(resolve => setTimeout(resolve, ms))
+}
 
 // configure app to use bodyParser()
 // this will let us get the data from a POST
@@ -41,7 +47,7 @@ try {
 // =============================================================================
 const nanoDb = nano(CONFIG.dbFullpath)
 const dbAuth = nanoDb.db.use('db_info')
-promisifyAll(dbAuth)
+promisify(dbAuth)
 
 // ROUTES FOR OUR API
 // =============================================================================
@@ -57,61 +63,50 @@ router.use(function (req, res, next) {
 
 router.get('/syncServers', function (req, res) {
   mylog('API /syncServers')
-  dbAuth.get('syncServers', function (err, syncServers) {
-    if (err) {
-      res.json(err)
-      return
-    }
-
+  dbAuth.get('syncServers').then(syncServers => {
     res.json(syncServers)
+  }).catch(err => {
+    res.json(err)
   })
 })
 
 router.get('/currencyInfo/:currencyCode', function (req, res) {
   mylog('API /currencyInfo/' + req.params.currencyCode)
-  dbAuth.get('currencyInfo', function (err, currencyInfo) {
-    if (err) {
-      res.json(err)
-      return
-    }
-
+  dbAuth.get('currencyInfo').then(currencyInfo => {
     if (typeof currencyInfo[req.params.currencyCode] === 'object') {
       res.json(currencyInfo[req.params.currencyCode])
     } else {
       res.json('Unable to find currencyInfo ' + req.params.currencyCode)
     }
+  }).catch(err => {
+    res.json(err)
   })
 })
 
 router.get('/electrumServers/:currencyCode', function (req, res) {
   mylog('API /electrumServers/' + req.params.currencyCode)
-  dbAuth.get('electrumServers', function (err, electrumServers) {
-    if (err) {
-      res.json(err)
-      return
-    }
-
+  dbAuth.get('electrumServers').then(electrumServers => {
     if (typeof electrumServers[req.params.currencyCode] === 'object') {
       res.json(electrumServers[req.params.currencyCode])
     } else {
       res.json('Unable to find electrumServers ' + req.params.currencyCode)
     }
+  }).catch(err => {
+    res.json(err)
   })
 })
 
 router.get('/networkFees/:currencyCode', function (req, res) {
   mylog('API /networkFees/' + req.params.currencyCode)
-  dbAuth.get('networkFees', function (err, networkFees) {
-    if (err) {
-      res.json(err)
-      return
-    }
 
+  dbAuth.get('networkFees').then(networkFees => {
     if (typeof networkFees[req.params.currencyCode] === 'object') {
       res.json(networkFees[req.params.currencyCode])
     } else {
-      res.json('Unable to find currencyInfo ' + req.params.currencyCode)
+      res.json('Unable to find networkFees ' + req.params.currencyCode)
     }
+  }).catch(err => {
+    res.json(err)
   })
 })
 
@@ -135,3 +130,33 @@ httpServer.listen(CONFIG.httpPort)
 httpsServer.listen(CONFIG.httpsPort)
 
 mylog('Express server listening on port:' + CONFIG.httpPort + ' ssl:' + CONFIG.httpsPort)
+
+// Startup background tasks
+async function engineLoop () {
+  while (1) {
+    let electrumServers = {BTC: []}
+    try {
+      const results = await dbAuth.get('electrumServers')
+      if (typeof results.BTC === 'undefined') {
+        throw new Error('Missing BTC servers')
+      }
+      electrumServers = results
+    } catch (e) {
+      console.log(e)
+    }
+
+    try {
+      const results = await checkServers(electrumServers.BTC)
+      console.log(results)
+      if (typeof results !== 'undefined') {
+        electrumServers.BTC = results.goodServers
+        await dbAuth.insert(electrumServers, 'electrumServers')
+      }
+    } catch (e) {
+      console.log(e)
+    }
+    await snooze(LOOP_DELAY_MS)
+  }
+}
+
+engineLoop()

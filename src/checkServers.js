@@ -1,19 +1,28 @@
 // @flow
-import fetch from 'node-fetch'
+// import fetch from 'node-fetch'
+const fetch = require('node-fetch')
 
 const net = require('net')
 // const childProcess = require('child_process')
 
+const CHECK_BLOCK_HEIGHT = '484253'
+const CHECK_BLOCK_MERKLE = '378f5397b121e4828d8295f2496dcd093e4776b2214f2080782586a3cb4cd5c4'
+const SEED_SERVERS = [
+  'electrum://electrum.jdubya.info:50001',
+  'electrum://electrum-bc-az-eusa.airbitz.co:50001',
+  'electrum://electrum.no-ip.org:50001',
+  'electrum://electrum-bu-az-wusa2.airbitz.co:50001',
+  'electrum://electrum-bu-az-wjapan.airbitz.co:50001',
+  'electrum://electrum-bu-az-ausw.airbitz.co:50001',
+  'electrum://electrum.hsmiths.com:8080',
+  'electrum://electrum-bu-az-weuro.airbitz.co:50001',
+  'electrum://kerzane.ddns.net:50001',
+  'electrum://e.anonyhost.org:50001',
+  'electrum://ELECTRUM.not.fyi:50001'
+]
+
 const goodServers = []
 const badServers = []
-const seedServers = [
-  'electrum://stratum-ramnode-nl.airbitz.co:80',
-  'electrum://stratum-az-neuro.airbitz.co:50001',
-  'electrum://stratum-az-wjapan.airbitz.co:50001',
-  'electrum://stratum-az-wusa.airbitz.co:50001',
-  'electrum://electrum.jdubya.info:50001',
-  'electrum://electrum.hsmiths.com:8080'
-]
 
 async function fetchGet (url:string) {
   const response = await fetch(url, {
@@ -32,21 +41,29 @@ export async function checkServers (serverList:Array<string>) {
     return
   }
 
-  let servers = seedServers.concat(serverList)
+  let servers = SEED_SERVERS.concat(serverList)
   let finalServers = servers.slice()
+  const promiseArray = []
 
   //
-  // Loop over all servers from auth.airbitz.co and get their list of electrum peers
+  // Loop over all servers
   //
 
-  for (let server of serverList) {
-    let peers = []
-    try {
-      peers = await getPeers(server)
-    } catch (e) {
-      console.log(e)
+  for (let server of servers) {
+    console.log(server)
+    const p = getPeers(server)
+    promiseArray.push(p)
+  }
+
+  const results:Array<any> = await Promise.all(promiseArray)
+
+  for (const result of results) {
+    // Each result is an array of peers or -1 if that server failed
+    if (result.peers === -1) {
+      badServers.push(result.serverUrl)
+    } else {
+      finalServers = finalServers.concat(result.peers)
     }
-    finalServers = finalServers.concat(peers)
   }
 
   let uniqueServers = Array.from(new Set(finalServers))
@@ -86,6 +103,7 @@ function checkServer (height, serverUrl) {
     let regex = new RegExp(/electrum:\/\/(.*):(.*)/)
     let results = regex.exec(serverUrl)
     const client = new net.Socket()
+    let status:number = 0
 
     if (results === null) {
       resolve({useServer: false, serverUrl})
@@ -93,10 +111,12 @@ function checkServer (height, serverUrl) {
       const port = results[2]
       const host = results[1]
       client.connect({ port, host }, () => {
-        console.log('connecting to:' + serverUrl)
+        console.log('****** checkServer:' + serverUrl)
         let query = '{ "id": 1, "method": "blockchain.numblocks.subscribe", "params": [] }\n'
         client.write(query)
-        console.log('query:' + query + '***')
+        query = '{ "id": 2, "method": "blockchain.block.get_header", "params": [' + CHECK_BLOCK_HEIGHT + '] }\n'
+        client.write(query)
+        console.log('query:' + query)
       })
 
       let jsonData = ''
@@ -114,14 +134,34 @@ function checkServer (height, serverUrl) {
           return
         }
 
+        let fail = true
         if (resultObj !== null) {
-          if (resultObj.result >= height - 1) {
+          if (resultObj.id === 1) {
+            if (resultObj.result >= height - 1) {
+              status++
+              fail = false
+            }
+          } else if (resultObj.id === 2) {
+            if (
+              typeof resultObj.result !== 'undefined' &&
+              typeof resultObj.result.merkle_root !== 'undefined' &&
+              resultObj.result.merkle_root === CHECK_BLOCK_MERKLE) {
+              status++
+              fail = false
+            }
+          }
+          if (status === 2) {
             client.write('Goodbye!!!')
             resolve({useServer: true, serverUrl})
           }
         }
-        client.write('Goodbye!!!')
-        resolve({useServer: false, serverUrl})
+
+        if (fail) {
+          console.log('checkServer FAIL:')
+          console.log(resultObj)
+          client.write('Goodbye!!!')
+          resolve({useServer: false, serverUrl})
+        }
       })
 
       client.on('error', (err) => {
@@ -143,7 +183,7 @@ function checkServer (height, serverUrl) {
 }
 
 function getPeers (serverUrl) {
-  return new Promise((resolve, reject) => {
+  return new Promise((resolve) => {
     let regex = new RegExp(/electrum:\/\/(.*):(.*)/)
     let results = regex.exec(serverUrl)
     const client = new net.Socket()
@@ -158,7 +198,7 @@ function getPeers (serverUrl) {
         console.log('query:' + query + '***')
       })
     } else {
-      reject(new Error('Invalid server url: ' + serverUrl))
+      resolve({serverUrl, peers: -1})
     }
     let peers = []
 
@@ -180,20 +220,20 @@ function getPeers (serverUrl) {
         for (let serverObj of rArray) {
           let serverName = serverObj[1]
           let detailsArray = serverObj[2]
-          let connections = detailsArray[1]
+          let txHistory = detailsArray[1]
           let port = detailsArray[2]
-          let numConnections = 0
+          let numTxHistory = 0
 
-          let connRegex = new RegExp(/p(.*)/)
-          let connRegexResults = connRegex.exec(connections)
+          let txHistoryRegex = new RegExp(/p(.*)/)
+          let txHistoryRegexResults = txHistoryRegex.exec(txHistory)
 
-          if (connRegexResults !== null) {
-            numConnections = connRegexResults[1]
+          if (txHistoryRegexResults !== null) {
+            numTxHistory = txHistoryRegexResults[1]
           }
 
-          if (numConnections < 1000) {
+          if (numTxHistory < 1000) {
             // Exit
-            console.log(serverName + ': Insufficient numConnections:' + numConnections)
+            console.log(serverName + ': Insufficient numTxHistory:' + numTxHistory)
             continue
           }
 
@@ -216,140 +256,17 @@ function getPeers (serverUrl) {
         }
       }
       client.write('Goodbye!!!')
-      resolve(peers)
+      resolve({serverUrl, peers})
     })
 
     client.on('error', function (err) {
       console.log(err)
-      reject(new Error('Connection error:' + serverUrl))
+      resolve({serverUrl, peers: -1})
     })
 
     client.on('close', function () {
       console.log('close')
+      resolve({serverUrl, peers: -1})
     })
   })
 }
-
-// ===============================================================
-
-// //
-// // Get the block height as reported by blockchain.info
-// //
-// restClient.get('https://blockchain.info/latestblock', function (data, response) {
-//   let currentHeight = data.height
-//
-//   //
-//   // Get the current list of seed servers from auth.airbitz.co
-//   // API key used is from user 'check_server' 004c58827a788775e1f06ee5afbcfbb1cab57344
-//   //
-//   let args = {
-//     data: { test: '' },
-//     headers: {
-//       'Content-Type': 'application/json',
-//       // 'Authorization': 'Token ' + '7783588500df950fe1b04b39c7deec4d880de9ec'}
-//       'Authorization': 'Token ' + '004c58827a788775e1f06ee5afbcfbb1cab57344'}
-//   }
-//
-//   restClient.post('https://auth.airbitz.co/api/v1/getinfo', args, function (data2, response2) {
-//     if (data2.status_code === 0) {
-//       // Success
-// //xxxxxxx
-//
-//     }
-//   })
-// })
-//
-// String.format = function (format) {
-//   let args = Array.prototype.slice.call(arguments, 1)
-//   return format.replace(/{(\d+)}/g, function (match, number) {
-//     return typeof args[number] !== 'undefined'
-//       ? args[number]
-//       : match
-//   })
-// }
-//
-// function updateAuthServerDjango (goodServers, badServers) {
-//   let initServerCmd =
-//     'from django.contrib.auth.models import User\n' +
-//     'from restapi.models import ObeliskServers\n'
-//   let addServerCmd =
-//     '(new_server{1}, _) = ObeliskServers.objects.get_or_create(uri=\'{0}\')\n' +
-//     'new_server{1}.users = User.objects.all()\n'
-//   let removeServerCmd =
-//     'ObeliskServers.objects.filter(uri=\'{0}\').delete()\n'
-//
-//   let addRemoveServerCmd = initServerCmd
-//   for (let i in goodServers) {
-//     addRemoveServerCmd = addRemoveServerCmd + String.format(addServerCmd, goodServers[i], i)
-//   }
-//   for (let i in badServers) {
-//     addRemoveServerCmd = addRemoveServerCmd + String.format(removeServerCmd, badServers[i])
-//   }
-//
-//   console.log('Django cmd="' + addRemoveServerCmd + '"')
-//
-//   childProcess.spawnSync('/bin/bash', ['managepy.sh'], {input: addRemoveServerCmd})
-// }
-
-// function checkServer (height, serverUrl, callback) {
-//   let regex = new RegExp(/stratum:\/\/(.*):(.*)/)
-//   let results = regex.exec(serverUrl)
-//
-//   if (results === null) {
-//     let regex2 = new RegExp(/tcp:\/\/(.*):(.*)/)
-//     let results2 = regex2.exec(serverUrl)
-//
-//     if (results2 === null) {
-//       callback(null, false, serverUrl)
-//     } else {
-//       callback(null, true, serverUrl)
-//     }
-//   } else {
-//     let port = results[2]
-//     let serverName = results[1]
-//
-//     let client = NetcatClient(port, serverName)
-//     let jsonData = ''
-//
-//     client.on('open', function () {
-//       console.log('connecting to: ' + serverUrl)
-//       let query = '{ "id": 1, "method": "blockchain.numblocks.subscribe", "params": [] }\n'
-//       client.send(query)
-//     })
-//
-//     client.on('data', function (data) {
-//       let results = data.toString('ascii')
-//       console.log(results)
-//
-//       let resultObj = null
-//
-//       try {
-//         resultObj = JSON.parse(jsonData + results)
-//       } catch (e) {
-//         jsonData += results
-//         return
-//       }
-//
-//       if (resultObj != null) {
-//         if (resultObj.result >= height - 1) {
-//           client.send('Goodbye!!!', true)
-//           callback(null, true, serverUrl)
-//           return
-//         }
-//       }
-//       client.send('Goodbye!!!', true)
-//       callback(null, false, serverUrl)
-//     })
-//
-//     client.on('error', function (err) {
-//       console.log(err)
-//       callback(null, false, serverUrl)
-//     })
-//
-//     client.on('close', function () {
-//       console.log('close')
-//     })
-//
-//     client.start()
-//   }
-// }
