@@ -8,6 +8,7 @@ const assert = require('assert')
 
 describe('Check servers', function () {
   it('Has any good and bad servers', function (done) {
+    this.timeout(120000)
     assert.doesNotThrow(() => {
       checkServers([]).then(servers => {
         assert.equal(servers.goodServers.length > 0, true)

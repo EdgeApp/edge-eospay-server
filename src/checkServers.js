@@ -10,19 +10,22 @@ const CHECK_BLOCK_MERKLE = '378f5397b121e4828d8295f2496dcd093e4776b2214f20807825
 const SEED_SERVERS = [
   'electrum://electrum.jdubya.info:50001',
   'electrum://electrum-bc-az-eusa.airbitz.co:50001',
-  'electrum://electrum.no-ip.org:50001',
   'electrum://electrum-bu-az-wusa2.airbitz.co:50001',
   'electrum://electrum-bu-az-wjapan.airbitz.co:50001',
   'electrum://electrum-bu-az-ausw.airbitz.co:50001',
   'electrum://electrum.hsmiths.com:8080',
   'electrum://electrum-bu-az-weuro.airbitz.co:50001',
-  'electrum://kerzane.ddns.net:50001',
   'electrum://e.anonyhost.org:50001',
   'electrum://ELECTRUM.not.fyi:50001'
 ]
 
 const goodServers = []
 const badServers = []
+
+function dateString () {
+  const date = new Date()
+  return date.toDateString() + ':' + date.toTimeString()
+}
 
 async function fetchGet (url:string) {
   const response = await fetch(url, {
@@ -43,7 +46,7 @@ export async function checkServers (serverList:Array<string>) {
 
   let servers = SEED_SERVERS.concat(serverList)
   let finalServers = servers.slice()
-  const promiseArray = []
+  let promiseArray = []
 
   //
   // Loop over all servers
@@ -55,7 +58,7 @@ export async function checkServers (serverList:Array<string>) {
     promiseArray.push(p)
   }
 
-  const results:Array<any> = await Promise.all(promiseArray)
+  let results:Array<any> = await Promise.all(promiseArray)
 
   for (const result of results) {
     // Each result is an array of peers or -1 if that server failed
@@ -68,14 +71,24 @@ export async function checkServers (serverList:Array<string>) {
 
   let uniqueServers = Array.from(new Set(finalServers))
 
+  console.log('Found ' + uniqueServers.length + ' unique peers to check')
+
+  promiseArray = []
   for (let svr of uniqueServers) {
-    const { useServer, serverUrl } = await checkServer(currentHeight, svr)
+    const p = checkServer(currentHeight, svr)
+    promiseArray.push(p)
+  }
+
+  results = await Promise.all(promiseArray)
+
+  for (const result of results) {
+    const { useServer, serverUrl } = result
     if (useServer === true) {
       goodServers.push(serverUrl)
-      console.log('good server: ' + serverUrl)
+      console.log('good server: [' + serverUrl + ']')
     } else {
       badServers.push(serverUrl)
-      console.log('bad server: ' + serverUrl)
+      console.log('bad server: [' + serverUrl + ']')
     }
     console.log('numGood:' + goodServers.length + ' numBad:' + badServers.length)
     if (goodServers.length + badServers.length === uniqueServers.length) {
@@ -99,7 +112,7 @@ export async function checkServers (serverList:Array<string>) {
 }
 
 function checkServer (height, serverUrl) {
-  return new Promise((resolve, reject) => {
+  return new Promise((resolve) => {
     let regex = new RegExp(/electrum:\/\/(.*):(.*)/)
     let results = regex.exec(serverUrl)
     const client = new net.Socket()
@@ -108,6 +121,7 @@ function checkServer (height, serverUrl) {
     if (results === null) {
       resolve({useServer: false, serverUrl})
     } else {
+      let resolved = false
       const port = results[2]
       const host = results[1]
       client.connect({ port, host }, () => {
@@ -151,41 +165,60 @@ function checkServer (height, serverUrl) {
             }
           }
           if (status === 2) {
+            console.log('checkServer SUCCESS:' + serverUrl)
+            resolved = true
             client.write('Goodbye!!!')
+            client.destroy()
             resolve({useServer: true, serverUrl})
           }
         }
 
         if (fail) {
           console.log('checkServer FAIL:')
+          console.log('checkServer FAIL:' + serverUrl)
           console.log(resultObj)
           client.write('Goodbye!!!')
+          resolved = true
           resolve({useServer: false, serverUrl})
         }
       })
 
       client.on('error', (err) => {
         console.log(err)
+        resolved = true
         resolve({useServer: false, serverUrl})
       })
 
       client.on('close', () => {
         console.log('Socket closed')
+        resolved = true
         resolve({useServer: false, serverUrl})
       })
 
       client.on('end', () => {
         console.log('Socket end')
+        resolved = true
         resolve({useServer: false, serverUrl})
       })
+
+      setTimeout(() => {
+        if (!resolved) {
+          client.destroy()
+          console.log('Socket timeout')
+          resolve({useServer: false, serverUrl})
+        }
+      }, 10000)
     }
   })
 }
 
-function getPeers (serverUrl) {
+function getPeers (_serverUrl) {
+  const serverUrl = _serverUrl
   return new Promise((resolve) => {
+    console.log('*********** getPeers: ' + serverUrl)
     let regex = new RegExp(/electrum:\/\/(.*):(.*)/)
     let results = regex.exec(serverUrl)
+    let resolved = false
     const client = new net.Socket()
 
     if (results !== null) {
@@ -219,16 +252,24 @@ function getPeers (serverUrl) {
         let rArray = resultObj.result
         for (let serverObj of rArray) {
           let serverName = serverObj[1]
-          let detailsArray = serverObj[2]
-          let txHistory = detailsArray[1]
-          let port = detailsArray[2]
-          let numTxHistory = 0
+          let port = 50001
+          let numTxHistory = 10000
 
-          let txHistoryRegex = new RegExp(/p(.*)/)
-          let txHistoryRegexResults = txHistoryRegex.exec(txHistory)
-
-          if (txHistoryRegexResults !== null) {
-            numTxHistory = txHistoryRegexResults[1]
+          for (const deet of serverObj[2]) {
+            if (deet.startsWith('p')) {
+              let regex = new RegExp(/p(.*)/)
+              let results = regex.exec(deet)
+              if (results !== null) {
+                numTxHistory = results[1]
+              }
+            }
+            if (deet.startsWith('t')) {
+              let regex = new RegExp(/t(.*)/)
+              let results = regex.exec(deet)
+              if (results !== null) {
+                port = results[1]
+              }
+            }
           }
 
           if (numTxHistory < 1000) {
@@ -237,36 +278,40 @@ function getPeers (serverUrl) {
             continue
           }
 
-          if (port === 't') {
-            port = 50001
-          } else {
-            let regex2 = new RegExp(/t(.*)/)
-            let results2 = regex2.exec(port)
-
-            if (results2 !== null) {
-              port = results2[1]
-            } else {
-              console.log(serverName + ': Wrong port support')
-              continue
-            }
-          }
-          let serverUrl = 'electrum://' + serverName + ':' + port
-          console.log(serverUrl)
-          peers.push(serverUrl)
+          let url = 'electrum://' + serverName + ':' + port
+          console.log('Add peer: ' + url + ' from:' + serverUrl)
+          peers.push(url)
         }
       }
+      console.log(dateString())
+      console.log('-------------- FINISHED getPeers: ' + serverUrl)
       client.write('Goodbye!!!')
+      client.destroy()
+      resolved = true
       resolve({serverUrl, peers})
     })
 
     client.on('error', function (err) {
+      console.log(dateString())
+      console.log('-------------- ERROR getPeers:' + serverUrl)
       console.log(err)
+      resolved = true
       resolve({serverUrl, peers: -1})
     })
 
     client.on('close', function () {
-      console.log('close')
-      resolve({serverUrl, peers: -1})
+      console.log(dateString())
+      console.log('CLOSE getPeers:' + serverUrl)
     })
+
+    setTimeout(() => {
+      if (!resolved) {
+        client.write('Goodbye!!!')
+        client.destroy()
+        console.log(dateString())
+        console.log('TIMEOUT getPeers:' + serverUrl)
+        resolve({serverUrl, peers: -1})
+      }
+    }, 10000)
   })
 }
