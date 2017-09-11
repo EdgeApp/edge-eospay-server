@@ -25,6 +25,11 @@ function snooze (ms:number) {
   return new Promise(resolve => setTimeout(resolve, ms))
 }
 
+function dateString () {
+  const date = new Date()
+  return date.toDateString() + ':' + date.toTimeString()
+}
+
 // configure app to use bodyParser()
 // this will let us get the data from a POST
 app.use(bodyParser.urlencoded({ extended: true }))
@@ -113,7 +118,7 @@ router.get('/networkFees/:currencyCode', function (req, res) {
 // middleware to use for all requests
 router.use(function (req, res, next) {
   // do logging
-  mylog('Something is happening.')
+  mylog(dateString() + 'Something is happening.')
   next() // make sure we go to the next routes and don't stop here
 })
 
@@ -142,17 +147,22 @@ async function engineLoop () {
       }
       electrumServers = results
     } catch (e) {
+      console.log(dateString())
       console.log(e)
     }
 
     try {
+      mylog('***********************************')
+      mylog(dateString() + ': Calling checkServers')
       const results = await checkServers(electrumServers.BTC)
+      console.log(dateString())
       console.log(results)
       if (typeof results !== 'undefined') {
         electrumServers.BTC = results.goodServers
         await dbAuth.insert(electrumServers, 'electrumServers')
       }
     } catch (e) {
+      console.log(dateString())
       console.log(e)
     }
     await snooze(LOOP_DELAY_MS)
