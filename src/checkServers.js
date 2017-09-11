@@ -128,7 +128,13 @@ function checkServer (height, serverUrl) {
         console.log('****** checkServer:' + serverUrl)
         let query = '{ "id": 1, "method": "blockchain.numblocks.subscribe", "params": [] }\n'
         client.write(query)
+        console.log('query:' + query)
+
         query = '{ "id": 2, "method": "blockchain.block.get_header", "params": [' + CHECK_BLOCK_HEIGHT + '] }\n'
+        client.write(query)
+        console.log('query:' + query)
+
+        query = '{ "id": 3, "method": "server.banner", "params": [] }\n'
         client.write(query)
         console.log('query:' + query)
       })
@@ -163,8 +169,15 @@ function checkServer (height, serverUrl) {
               status++
               fail = false
             }
+          } else if (resultObj.id === 3) {
+            if (typeof resultObj.result !== 'undefined') {
+              if (resultObj.result.toLowerCase().includes('electrumx')) {
+                status++
+                fail = false
+              }
+            }
           }
-          if (status === 2) {
+          if (status === 3) {
             console.log('checkServer SUCCESS:' + serverUrl)
             resolved = true
             client.write('Goodbye!!!')
