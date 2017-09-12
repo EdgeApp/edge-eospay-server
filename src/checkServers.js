@@ -7,6 +7,17 @@ const net = require('net')
 
 const CHECK_BLOCK_HEIGHT = '484253'
 const CHECK_BLOCK_MERKLE = '378f5397b121e4828d8295f2496dcd093e4776b2214f2080782586a3cb4cd5c4'
+
+const CHECK_SEGWIT_TX_ID = 'ef298148f25162db85127b83daefe07e46b06078f95aa30969b007a09a722b61'
+// const CHECK_SEGWIT_TX_RAW = '0100000002f8a7d578817bb42636a2552de53db822f30d776133ec3d1b9c58f435342e50ad000000002322002096c365c331033867275b5b693000e7396baa02cbeca80d605356c5acf3d9b0deffffffffe023a2e5ee2b63957e8e40a5a1ef3cf21f0de201af0da674d19e35a415394407000000002322002015e61ade874e81c9efcdb6739be8b67332c190554759cc5e144937f6974b7a77ffffffff02060e0600000000001976a91440f857348a9e1282b6455d83db110ae204b7268388acc06998000000000017a914395cc0ef446992db0694a8ee6a52274bab0a4c8c8700000000'
+const CHECK_SEGWIT_TX_RAW = '0100000002f8a7d578817bb4'
+
+// 0100000002f8a7d578817bb42636a2552de53db822f30d776133ec3d1b9c58f435342e50ad000000002322002096c365c331033867275b5b693000e7396baa02cbeca80d605356c5acf3d9b0deffffffffe023a2e5ee2b63957e8e40a5a1ef3cf21f0de201af0da674d19e35a415394407000000002322002015e61ade874e81c9efcdb6739be8b67332c190554759cc5e144937f6974b7a77ffffffff02060e0600000000001976a91440f857348a9e1282b6455d83db110ae204b7268388acc06998000000000017a914395cc0ef446992db0694a8ee6a52274bab0a4c8c8700000000
+// 01000000000102f8a7d578817bb42636a2552de53db822f30d776133ec3d1b9c58f435342e50ad000000002322002096c365c331033867275b5b693000e7396baa02cbeca80d605356c5acf3d9b0deffffffffe023a2e5ee2b63957e8e40a5a1ef3cf21f0de201af0da674d19e35a415394407000000002322002015e61ade874e81c9efcdb6739be8b67332c190554759cc5e144937f6974b7a77ffffffff02060e0600000000001976a91440f857348a9e1282b6455d83db110ae204b7268388acc06998000000000017a914395cc0ef446992db0694a8ee6a52274bab0a4c8c87040047304402207ed7de08fcd309a88a27d9d0c6fbce10b402f3bf3111137a607b1b4fb110b0de0220348a5e653020885c4dcbd054e348daf53fdd2d2282db05bee822d8dbc5390bff01483045022100f3ae6b2368355c6041c44081caf51828e420d8afd7b0d3d486ed722c2eae5ef2022021e5c66709a1f3c1e8a7ff41d23d9b0e1da9e2b1bd9f832da9df631b6af78ca6016952210204888c56fd54f254c5e991c60131e3efc8db0ed7051a2232b3d4d24143b6f2f02103022fc4c408d08902134880a4958f6b3c9207026586683c609f9635c03e46a379210310d3885dbb09a93b7bdb12aa9757579539b746fc080c3397c2bb1e688cea438053ae04004730440220733792dc3ad7613db14bb960ab6b918702aa8178986e5be90024f0a6d97e373602205b7a5767d524d6e8415caaaea6b24a9c3e2ad09f4dd2b6ac5775d392b53c580e0147304402205775814f3de90c0ca18737d3f2d9fdf52f9af4d8fdf66dd9e2355c68e490bb600220302b00399fe75650bf89bb68c24a39c804dd7aa449490d3486aceaca4b0d008e0169522102af82a350b7d485c20bb9e6b4ab93ad1138413981c364887e8ba9ce1f27c9b75e21036da1cdf952bb54ff5a4d02df4008a161ad6047193447fdd5a7176e12bc71fa49210225f085f9dc41d41
+// 01000000000102f8a7d578817bb42636a2552de53d
+
+console.log(CHECK_SEGWIT_TX_ID)
+console.log(CHECK_SEGWIT_TX_RAW)
 const SEED_SERVERS = [
   'electrum://electrum.jdubya.info:50001',
   'electrum://electrum-bc-az-eusa.airbitz.co:50001',
@@ -70,6 +81,7 @@ export async function checkServers (serverList:Array<string>) {
   }
 
   let uniqueServers = Array.from(new Set(finalServers))
+  // let uniqueServers = SEED_SERVERS
 
   console.log('Found ' + uniqueServers.length + ' unique peers to check')
 
@@ -92,12 +104,12 @@ export async function checkServers (serverList:Array<string>) {
     }
     console.log('numGood:' + goodServers.length + ' numBad:' + badServers.length)
     if (goodServers.length + badServers.length === uniqueServers.length) {
-      console.log(goodServers.length + 'GOOD SERVERS:\n')
+      console.log(goodServers.length + ' GOOD SERVERS:\n')
       for (let s of goodServers) {
         console.log(s)
       }
 
-      console.log('\n\n' + badServers.length + 'BAD SERVERS:\n')
+      console.log('\n\n' + badServers.length + ' BAD SERVERS:\n')
       for (let s of badServers) {
         console.log(s)
       }
@@ -116,7 +128,6 @@ function checkServer (height, serverUrl) {
     let regex = new RegExp(/electrum:\/\/(.*):(.*)/)
     let results = regex.exec(serverUrl)
     const client = new net.Socket()
-    let status:number = 0
 
     if (results === null) {
       resolve({useServer: false, serverUrl})
@@ -137,62 +148,66 @@ function checkServer (height, serverUrl) {
         query = '{ "id": 3, "method": "server.banner", "params": [] }\n'
         client.write(query)
         console.log('query:' + query)
+
+        query = '{ "id": 4, "method": "blockchain.transaction.get", "params": ["' + CHECK_SEGWIT_TX_ID + '"] }\n'
+        client.write(query)
+        console.log('query:' + query)
       })
 
       let jsonData = ''
+      let responseIds = 0
 
       client.on('data', (data) => {
         let results = data.toString('ascii')
+        console.log('BEGIN data for ' + serverUrl)
         console.log(results)
+        console.log('END data for ' + serverUrl)
 
-        let resultObj = null
+        let arrayResults = []
 
         try {
-          resultObj = JSON.parse(jsonData + results)
+          const resultObj = JSON.parse(jsonData + results)
+          arrayResults.push(resultObj)
         } catch (e) {
-          jsonData += results
-          return
-        }
-
-        let fail = true
-        if (resultObj !== null) {
-          if (resultObj.id === 1) {
-            if (resultObj.result >= height - 1) {
-              status++
-              fail = false
-            }
-          } else if (resultObj.id === 2) {
-            if (
-              typeof resultObj.result !== 'undefined' &&
-              typeof resultObj.result.merkle_root !== 'undefined' &&
-              resultObj.result.merkle_root === CHECK_BLOCK_MERKLE) {
-              status++
-              fail = false
-            }
-          } else if (resultObj.id === 3) {
-            if (typeof resultObj.result !== 'undefined') {
-              if (resultObj.result.toLowerCase().includes('electrumx')) {
-                status++
-                fail = false
+          // Check if this is a multiline response by breaking up into arrays by newline
+          const nlSplits = (jsonData + results).split('\n')
+          if (nlSplits.length > 0) {
+            for (const sp of nlSplits) {
+              try {
+                const resultObj = JSON.parse(sp)
+                arrayResults.push(resultObj)
+              } catch (e) {
+                jsonData += sp
               }
             }
+          } else {
+            jsonData += results
+            return
           }
-          if (status === 3) {
+        }
+
+        for (const result of arrayResults) {
+          const { responseId, success } = processResponse(result, height)
+          if (resolved) {
+            return
+          }
+          if (success) {
+            responseIds += responseId
+          } else {
+            console.log('checkServer FAIL:' + serverUrl)
+            console.log(result)
+            client.write('Goodbye!!!')
+            resolved = true
+            resolve({useServer: false, serverUrl})
+          }
+
+          if (responseIds === 10) {
             console.log('checkServer SUCCESS:' + serverUrl)
             resolved = true
             client.write('Goodbye!!!')
             client.destroy()
             resolve({useServer: true, serverUrl})
           }
-        }
-
-        if (fail) {
-          console.log('checkServer FAIL:')
-          console.log('checkServer FAIL:' + serverUrl)
-          console.log(resultObj)
-          client.write('Goodbye!!!')
-          resolved = true
-          resolve({useServer: false, serverUrl})
         }
       })
 
@@ -223,6 +238,52 @@ function checkServer (height, serverUrl) {
       }, 10000)
     }
   })
+}
+
+function processResponse (resultObj, height) {
+  let fail = true
+  let responseId = 0
+  if (resultObj !== null) {
+    responseId = resultObj.id
+    if (responseId === 1) {
+      if (resultObj.result >= height - 1) {
+        fail = false
+      }
+    // } else if (resultObj.method === 'blockchain.numblocks.subscribe') {
+    //   responseId = 1
+    //   if (resultObj.params[0] >= height - 1) {
+    //     fail = false
+    //   }
+    } else if (responseId === 2) {
+      if (
+        typeof resultObj.result !== 'undefined' &&
+        typeof resultObj.result.merkle_root !== 'undefined' &&
+        resultObj.result.merkle_root === CHECK_BLOCK_MERKLE) {
+        fail = false
+      }
+    } else if (responseId === 3) {
+      if (typeof resultObj.result !== 'undefined') {
+        if (resultObj.result.toLowerCase().includes('electrumx')) {
+          fail = false
+        }
+      }
+    } else if (resultObj.id === 4) {
+      if (typeof resultObj.result !== 'undefined') {
+        if (resultObj.result.toLowerCase().includes(CHECK_SEGWIT_TX_RAW)) {
+          fail = false
+        }
+      }
+    }
+    // if (status === 4) {
+  }
+
+  console.log('processResponse:')
+  const out = {
+    responseId,
+    success: !fail
+  }
+  console.log(out)
+  return out
 }
 
 function getPeers (_serverUrl) {
