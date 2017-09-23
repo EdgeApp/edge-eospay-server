@@ -33,7 +33,8 @@ function dateString () {
 // configure app to use bodyParser()
 // this will let us get the data from a POST
 app.use(bodyParser.urlencoded({ extended: true }))
-app.use(bodyParser.json())
+app.use(bodyParser.json({limit: '50mb'}))
+app.use(bodyParser.urlencoded({limit: '50mb', extended: true}))
 app.use(cors())
 
 // const port = process.env.PORT || 8085        // set our port
@@ -52,7 +53,9 @@ try {
 // =============================================================================
 const nanoDb = nano(CONFIG.dbFullpath)
 const dbAuth = nanoDb.db.use('db_info')
+const dbLogs = nanoDb.db.use('db_logs')
 promisify(dbAuth)
+promisify(dbLogs)
 
 // ROUTES FOR OUR API
 // =============================================================================
@@ -64,6 +67,17 @@ router.use(function (req, res, next) {
 
   mylog('Something is happening.')
   next() // make sure we go to the next routes and don't stop here
+})
+
+router.post('/addLogs/', function (req, res) {
+  console.log('ADD LOGS REQUEST', req.body.data.length)
+  var d = new Date()
+  dbLogs.insert({data: req.body.data}, d.toISOString(), function (err, body) {
+    console.log(err, body)
+  })
+  res.json({
+    'status': 'ok'
+  })
 })
 
 router.get('/syncServers', function (req, res) {
