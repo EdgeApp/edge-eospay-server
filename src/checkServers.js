@@ -1,6 +1,7 @@
 // @flow
 // import fetch from 'node-fetch'
 const fetch = require('node-fetch')
+const sprintf = require('sprintf-js').sprintf
 
 const net = require('net')
 // const childProcess = require('child_process')
@@ -86,6 +87,7 @@ export async function checkServers (serverList:Array<string>) {
   console.log('Found ' + uniqueServers.length + ' unique peers to check')
 
   promiseArray = []
+  // uniqueServers = ['electrum://electrum-bu-az-wjapan.airbitz.co:50001', 'electrum://electrum-bu-az-weuro.airbitz.co:50001']
   for (let svr of uniqueServers) {
     const p = checkServer(currentHeight, svr)
     promiseArray.push(p)
@@ -123,11 +125,19 @@ export async function checkServers (serverList:Array<string>) {
   }
 }
 
+const ID_HEIGHT = 1
+const ID_HEADER = 2
+const ID_BANNER = 3
+const ID_SEGWIT = 4
+
 function checkServer (height, serverUrl) {
   return new Promise((resolve) => {
     let regex = new RegExp(/electrum:\/\/(.*):(.*)/)
     let results = regex.exec(serverUrl)
     const client = new net.Socket()
+
+    const checks = [false, false, false, false, false, false, false, false]
+    const NUM_CHECKS = 4
 
     if (results === null) {
       resolve({useServer: false, serverUrl})
@@ -137,31 +147,30 @@ function checkServer (height, serverUrl) {
       const host = results[1]
       client.connect({ port, host }, () => {
         console.log('****** checkServer:' + serverUrl)
-        let query = '{ "id": 1, "method": "blockchain.numblocks.subscribe", "params": [] }\n'
+        let query = sprintf('{ "id": %d, "method": "blockchain.numblocks.subscribe", "params": [] }\n', ID_HEIGHT)
         client.write(query)
         console.log('query:' + query)
 
-        query = '{ "id": 2, "method": "blockchain.block.get_header", "params": [' + CHECK_BLOCK_HEIGHT + '] }\n'
+        query = sprintf('{ "id": %d, "method": "blockchain.block.get_header", "params": [' + CHECK_BLOCK_HEIGHT + '] }\n', ID_HEADER)
         client.write(query)
         console.log('query:' + query)
 
-        query = '{ "id": 3, "method": "server.banner", "params": [] }\n'
+        query = sprintf('{ "id": %d, "method": "server.banner", "params": [] }\n', ID_BANNER)
         client.write(query)
         console.log('query:' + query)
 
-        query = '{ "id": 4, "method": "blockchain.transaction.get", "params": ["' + CHECK_SEGWIT_TX_ID + '"] }\n'
+        query = sprintf('{ "id": %d, "method": "blockchain.transaction.get", "params": ["' + CHECK_SEGWIT_TX_ID + '"] }\n', ID_SEGWIT)
         client.write(query)
         console.log('query:' + query)
       })
 
       let jsonData = ''
-      let responseIds = 0
 
       client.on('data', (data) => {
         let results = data.toString('ascii')
-        console.log('BEGIN data for ' + serverUrl)
+        console.log('\nBEGIN data for ' + serverUrl)
         console.log(results)
-        console.log('END data for ' + serverUrl)
+        console.log('END data for ' + serverUrl + '\n')
 
         let arrayResults = []
 
@@ -192,7 +201,7 @@ function checkServer (height, serverUrl) {
             return
           }
           if (success) {
-            responseIds += responseId
+            checks[responseId] = true
           } else {
             console.log('checkServer FAIL:' + serverUrl)
             console.log(result)
@@ -201,7 +210,14 @@ function checkServer (height, serverUrl) {
             resolve({useServer: false, serverUrl})
           }
 
-          if (responseIds === 10) {
+          let complete = true
+          for (let c = 1; c <= NUM_CHECKS; c++) {
+            if (checks[c] === false) {
+              complete = false
+              break
+            }
+          }
+          if (complete) {
             console.log('checkServer SUCCESS:' + serverUrl)
             resolved = true
             client.write('Goodbye!!!')
@@ -218,13 +234,13 @@ function checkServer (height, serverUrl) {
       })
 
       client.on('close', () => {
-        console.log('Socket closed')
+        // console.log('Socket closed')
         resolved = true
         resolve({useServer: false, serverUrl})
       })
 
       client.on('end', () => {
-        console.log('Socket end')
+        // console.log('Socket end')
         resolved = true
         resolve({useServer: false, serverUrl})
       })
@@ -232,7 +248,7 @@ function checkServer (height, serverUrl) {
       setTimeout(() => {
         if (!resolved) {
           client.destroy()
-          console.log('Socket timeout')
+          // console.log('Socket timeout')
           resolve({useServer: false, serverUrl})
         }
       }, 10000)
@@ -241,48 +257,74 @@ function checkServer (height, serverUrl) {
 }
 
 function processResponse (resultObj, height) {
+  console.log('processResponse START')
   let fail = true
   let responseId = 0
   if (resultObj !== null) {
     responseId = resultObj.id
-    if (responseId === 1) {
+    if (responseId === ID_HEIGHT) {
       if (resultObj.result >= height - 1) {
         fail = false
+      } else {
+        console.log('processResponse FAIL height')
       }
-    // } else if (resultObj.method === 'blockchain.numblocks.subscribe') {
-    //   responseId = 1
-    //   if (resultObj.params[0] >= height - 1) {
-    //     fail = false
-    //   }
-    } else if (responseId === 2) {
+      // } else if (resultObj.method === 'blockchain.numblocks.subscribe') {
+      //   responseId = 1
+      //   if (resultObj.params[0] >= height - 1) {
+      //     fail = false
+      //   }
+    } else if (responseId === ID_HEADER) {
       if (
         typeof resultObj.result !== 'undefined' &&
         typeof resultObj.result.merkle_root !== 'undefined' &&
         resultObj.result.merkle_root === CHECK_BLOCK_MERKLE) {
         fail = false
+      } else {
+        console.log('processResponse FAIL bitcoincash merkle')
       }
-    } else if (responseId === 3) {
+    } else if (responseId === ID_BANNER) {
       if (typeof resultObj.result !== 'undefined') {
         if (resultObj.result.toLowerCase().includes('electrumx')) {
           fail = false
+        } else {
+          console.log('processResponse FAIL electrumx')
         }
+      } else {
+        console.log('processResponse FAIL result electrumx')
       }
-    } else if (resultObj.id === 4) {
+    } else if (resultObj.id === ID_SEGWIT) {
       if (typeof resultObj.result !== 'undefined') {
         if (resultObj.result.toLowerCase().includes(CHECK_SEGWIT_TX_RAW)) {
           fail = false
+        } else {
+          console.log('processResponse FAIL segwit')
         }
+      } else {
+        console.log('processResponse FAIL result segwit')
       }
+    } else if (resultObj.method === 'blockchain.numblocks.subscribe') {
+      if (resultObj.params[0] >= height - 1) {
+        fail = false
+        responseId = ID_HEIGHT
+      } else {
+        console.log('processResponse FAIL method height')
+      }
+    } else {
+      console.log('processResponse FAIL processid')
     }
     // if (status === 4) {
+  } else {
+    console.log('processResponse FAIL resultObj')
   }
 
-  console.log('processResponse:')
   const out = {
     responseId,
     success: !fail
   }
   console.log(out)
+  if (fail) {
+    console.log(resultObj)
+  }
   return out
 }
 
