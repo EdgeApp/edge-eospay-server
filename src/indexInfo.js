@@ -129,6 +129,20 @@ router.get('/networkFees/:currencyCode', function (req, res) {
   })
 })
 
+router.get('/appIdInfo/:appId', function (req, res) {
+  mylog('API /appIdInfo/' + req.params.appId)
+
+  dbAuth.get('appIdInfo').then(networkFees => {
+    if (typeof networkFees[req.params.appId] === 'object') {
+      res.json(networkFees[req.params.appId])
+    } else {
+      res.json('Unable to find networkFees ' + req.params.appId)
+    }
+  }).catch(err => {
+    res.json(err)
+  })
+})
+
 // middleware to use for all requests
 router.use(function (req, res, next) {
   // do logging
