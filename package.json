@@ -63,12 +63,12 @@
     "rollup": "rollup -c && rollup -c rollup.config.checkServers.js",
     "updot": "updot",
     "start": "node lib/indexInfo.js",
-    "build": "npm run lint && npm run rollup && npm run flow",
+    "build": "npm run rollup",
     "built": "npm run build && npm run test",
     "cover": "nyc --reporter=lcov --reporter=text --reporter=html --extension .js npm test",
     "lint:fix": "standard 'src/**/*.js' 'test/**/*.js' --fix",
-    "lint": "standard 'src/**/*.js' 'test/**/*.js'",
-    "prepare": "npm run rollup",
-    "test": "mocha"
+    "lint": "standard 'src/**/*.js' 'test/**/*.js' && npm run flow",
+    "prepare": "npm run build",
+    "test": "npm run lint && mocha"
   }
 }
