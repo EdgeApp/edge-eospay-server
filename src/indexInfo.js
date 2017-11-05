@@ -167,7 +167,12 @@ mylog('Express server listening on port:' + CONFIG.httpPort + ' ssl:' + CONFIG.h
 // Startup background tasks
 async function engineLoop () {
   while (1) {
-    let electrumServers = {BTC: []}
+    let electrumServers = {
+      BTC: [],
+      BTCCORE: [],
+      BCH: [],
+      BTC2X: []
+    }
     try {
       const results = await dbAuth.get('electrumServers')
       if (typeof results.BTC === 'undefined') {
@@ -182,11 +187,15 @@ async function engineLoop () {
     try {
       mylog('***********************************')
       mylog(dateString() + ': Calling checkServers')
-      const results = await checkServers(electrumServers.BTC)
+      const seedServers = electrumServers.BTC.concat(electrumServers.BTCCORE).concat(electrumServers.BCH)
+      const results = await checkServers(seedServers)
       console.log(dateString())
       console.log(results)
       if (typeof results !== 'undefined') {
-        electrumServers.BTC = results.goodServers
+        electrumServers.BTC = results.nonSegwitServers
+        electrumServers.BTCCORE = results.coreServers
+        electrumServers.BCH = results.bchServers
+        electrumServers.BTC2X = results.btc2xServers
         await dbAuth.insert(electrumServers, 'electrumServers')
       }
     } catch (e) {

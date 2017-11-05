@@ -11,7 +11,9 @@ describe('Check servers', function () {
     this.timeout(120000)
     assert.doesNotThrow(() => {
       checkServers([]).then(servers => {
-        assert.equal(servers.goodServers.length >= 0, true)
+        assert.equal(servers.coreServers.length >= 0, true)
+        assert.equal(servers.nonSegwitServers.length >= 0, true)
+        assert.equal(servers.bchServers.length >= 0, true)
         assert.equal(servers.badServers.length >= 0, true)
         done()
       })
