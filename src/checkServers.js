@@ -192,7 +192,7 @@ function pruneLowBlockHeight (servers: Array<{serverUrl: string, blockHeight: nu
   for (const s of servers) {
     if (
       s.blockHeight >= heightWithHighestScore - 1 &&
-      s.blockHeight <= heightWithHighestScore
+      s.blockHeight <= heightWithHighestScore + 1
     ) {
       out.push(s.serverUrl)
     } else {
