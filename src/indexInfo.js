@@ -43,7 +43,8 @@ let credentials = {}
 try {
   credentials = {
     key: fs.readFileSync(CONFIG.sslPrivateKeyPath, 'utf8'),
-    cert: fs.readFileSync(CONFIG.sslCertPath, 'utf8')
+    cert: fs.readFileSync(CONFIG.sslCertPath, 'utf8'),
+    ca: fs.readFileSync(CONFIG.sslCaCertPath, 'utf8')
   }
 } catch (e) {
   mylog(e)
