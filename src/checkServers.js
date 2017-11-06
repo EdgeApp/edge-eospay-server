@@ -4,6 +4,7 @@
 const sprintf = require('sprintf-js').sprintf
 
 const net = require('net')
+const tls = require('tls')
 // const childProcess = require('child_process')
 
 const CHECK_BLOCK_HEIGHT = '484253'
@@ -225,7 +226,14 @@ const BCH_FALSE = 2
 
 function checkServer (serverUrl: string): Promise<CheckServerResponse> {
   return new Promise((resolve) => {
-    let regex = new RegExp(/electrum:\/\/(.*):(.*)/)
+    let regex
+    let ssl = false
+    if (serverUrl.startsWith('electrums:')) {
+      regex = new RegExp(/electrums:\/\/(.*):(.*)/)
+      ssl = true
+    } else {
+      regex = new RegExp(/electrum:\/\/(.*):(.*)/)
+    }
     let results = regex.exec(serverUrl)
 
     let out: CheckServerResponse = {
@@ -236,7 +244,7 @@ function checkServer (serverUrl: string): Promise<CheckServerResponse> {
       blockHeight: 0
     }
 
-    const client = new net.Socket()
+    let client
 
     const checks = [false, false, false, false, false, false, false, false]
     const NUM_CHECKS = 4
@@ -247,7 +255,13 @@ function checkServer (serverUrl: string): Promise<CheckServerResponse> {
       let resolved = false
       const port = results[2]
       const host = results[1]
-      client.connect({ port, host }, () => {
+      let tcp
+      if (ssl) {
+        tcp = tls
+      } else {
+        tcp = net
+      }
+      client = tcp.connect({ port, host, rejectUnauthorized: false }, () => {
         console.log('****** checkServer:' + serverUrl)
         let query = sprintf('{ "id": %d, "method": "blockchain.numblocks.subscribe", "params": [] }\n', ID_HEIGHT)
         client.write(query)
@@ -452,15 +466,29 @@ function getPeers (_serverUrl) {
   const serverUrl = _serverUrl
   return new Promise((resolve) => {
     console.log('*********** getPeers: ' + serverUrl)
-    let regex = new RegExp(/electrum:\/\/(.*):(.*)/)
+    // let regex = new RegExp(/electrum:\/\/(.*):(.*)/)
+    let regex
+    let ssl = false
+    if (serverUrl.startsWith('electrums:')) {
+      regex = new RegExp(/electrums:\/\/(.*):(.*)/)
+      ssl = true
+    } else {
+      regex = new RegExp(/electrum:\/\/(.*):(.*)/)
+    }
     let results = regex.exec(serverUrl)
     let resolved = false
-    const client = new net.Socket()
+    let client
 
     if (results !== null) {
       const port = results[2]
       const host = results[1]
-      client.connect({ port, host }, () => {
+      let tcp
+      if (ssl) {
+        tcp = tls
+      } else {
+        tcp = net
+      }
+      client = tcp.connect({ port, host, rejectUnauthorized: false }, () => {
         console.log('connect')
         const query = '{ "id": 2, "method": "server.peers.subscribe", "params": [] }\n'
         client.write(query)
@@ -468,6 +496,7 @@ function getPeers (_serverUrl) {
       })
     } else {
       resolve({serverUrl, peers: -1})
+      return
     }
     let peers = []
 
@@ -489,6 +518,7 @@ function getPeers (_serverUrl) {
         for (let serverObj of rArray) {
           let serverName = serverObj[1]
           let port = 50001
+          let sport = 0
           let numTxHistory = 10000
 
           for (const deet of serverObj[2]) {
@@ -506,6 +536,13 @@ function getPeers (_serverUrl) {
                 port = results[1]
               }
             }
+            if (deet.startsWith('s')) {
+              let regex = new RegExp(/s(.*)/)
+              let results = regex.exec(deet)
+              if (results !== null) {
+                sport = results[1]
+              }
+            }
           }
 
           if (numTxHistory < 1000) {
@@ -514,7 +551,13 @@ function getPeers (_serverUrl) {
             continue
           }
 
-          let url = 'electrum://' + serverName + ':' + port
+          if (parseInt(sport) > 0) {
+            const url = 'electrums://' + serverName + ':' + sport
+            console.log('Add peer: ' + url + ' from:' + serverUrl)
+            peers.push(url)
+          }
+
+          const url = 'electrum://' + serverName + ':' + port
           console.log('Add peer: ' + url + ' from:' + serverUrl)
           peers.push(url)
         }
