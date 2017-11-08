@@ -22,12 +22,17 @@ console.log(CHECK_SEGWIT_TX_ID)
 console.log(CHECK_NONSEGWIT_TX_RAW)
 const SEED_SERVERS = [
   'electrum://electrum.jdubya.info:50001',
+  'electrums://electrum-bc-az-eusa.airbitz.co:50002',
   'electrum://electrum-bc-az-eusa.airbitz.co:50001',
+  'electrums://electrum-bu-az-wusa2.airbitz.co:50002',
   'electrum://electrum-bu-az-wusa2.airbitz.co:50001',
+  'electrums://electrum-bu-az-wjapan.airbitz.co:50002',
   'electrum://electrum-bu-az-wjapan.airbitz.co:50001',
+  'electrums://electrum-bu-az-ausw.airbitz.co:50002',
   'electrum://electrum-bu-az-ausw.airbitz.co:50001',
-  'electrum://electrum.hsmiths.com:8080',
+  'electrums://electrum-bu-az-weuro.airbitz.co:50002',
   'electrum://electrum-bu-az-weuro.airbitz.co:50001',
+  'electrum://electrum.hsmiths.com:8080',
   'electrum://e.anonyhost.org:50001',
   'electrum://ELECTRUM.not.fyi:50001'
 ]

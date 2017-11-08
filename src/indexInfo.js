@@ -103,6 +103,19 @@ router.get('/currencyInfo/:currencyCode', function (req, res) {
   })
 })
 
+router.get('/airbitzChainChoice/:apiKey', function (req, res) {
+  mylog('API /airbitzChainChoice/' + req.params.apiKey)
+  dbAuth.get('airbitzChainChoice').then(airbitzChainChoice => {
+    if (typeof airbitzChainChoice[req.params.apiKey] === 'object') {
+      res.json(airbitzChainChoice[req.params.apiKey])
+    } else {
+      res.json(airbitzChainChoice['default'])
+    }
+  }).catch(err => {
+    res.json(err)
+  })
+})
+
 router.get('/electrumServers/:currencyCode', function (req, res) {
   mylog('API /electrumServers/' + req.params.currencyCode)
   dbAuth.get('electrumServers').then(electrumServers => {
@@ -110,6 +123,19 @@ router.get('/electrumServers/:currencyCode', function (req, res) {
       res.json(electrumServers[req.params.currencyCode])
     } else {
       res.json('Unable to find electrumServers ' + req.params.currencyCode)
+    }
+  }).catch(err => {
+    res.json(err)
+  })
+})
+
+router.get('/airbitzCurrencyInfo/:currencyCode', function (req, res) {
+  mylog('API /airbitzCurrencyInfo/' + req.params.currencyCode)
+  dbAuth.get('airbitzCurrencyInfo').then(airbitzCurrencyInfo => {
+    if (typeof airbitzCurrencyInfo[req.params.currencyCode] === 'object') {
+      res.json(airbitzCurrencyInfo[req.params.currencyCode])
+    } else {
+      res.json('Unable to find airbitzCurrencyInfo ' + req.params.currencyCode)
     }
   }).catch(err => {
     res.json(err)
@@ -170,9 +196,9 @@ async function engineLoop () {
   while (1) {
     let electrumServers = {
       BTC: [],
-      BTCCORE: [],
-      BCH: [],
-      BTC2X: []
+      BC1: [],
+      BC2: [],
+      BCH: []
     }
     try {
       const results = await dbAuth.get('electrumServers')
@@ -188,15 +214,15 @@ async function engineLoop () {
     try {
       mylog('***********************************')
       mylog(dateString() + ': Calling checkServers')
-      const seedServers = electrumServers.BTC.concat(electrumServers.BTCCORE).concat(electrumServers.BCH)
+      const seedServers = electrumServers.BTC.concat(electrumServers.BC1).concat(electrumServers.BC2).concat(electrumServers.BCH)
       const results = await checkServers(seedServers)
       console.log(dateString())
       console.log(results)
       if (typeof results !== 'undefined') {
         electrumServers.BTC = results.nonSegwitServers
-        electrumServers.BTCCORE = results.coreServers
+        electrumServers.BC1 = results.coreServers
+        electrumServers.BC2 = results.btc2xServers
         electrumServers.BCH = results.bchServers
-        electrumServers.BTC2X = results.btc2xServers
         await dbAuth.insert(electrumServers, 'electrumServers')
       }
     } catch (e) {

@@ -1,6 +1,6 @@
 {
   "name": "edge-info-server",
-  "version": "1.0.0",
+  "version": "0.2.0",
   "description": "Info Server for Edge Wallet and SDK",
   "main": "lib/indexInfo.js",
   "repository": {
