@@ -156,9 +156,17 @@ export async function checkServers (serverList:Array<string>): Promise<CheckServ
     console.log(s)
   }
 
-  const finalBchServers = pruneLowBlockHeight(bchServers)
-  const finalCoreServers = pruneLowBlockHeight(coreServers)
-  const finalNonSegwitServers = pruneLowBlockHeight(nonSegwitServers)
+  const bestBchServers = pruneLowBlockHeight(bchServers)
+  const bestCoreServers = pruneLowBlockHeight(coreServers)
+  const bestNonSegwitServers = pruneLowBlockHeight(nonSegwitServers)
+
+  const finalBchServerSet = new Set(bestBchServers)
+  const finalCoreServerSet = new Set(bestCoreServers)
+  const finalNonSegwitServerSet = new Set(bestNonSegwitServers)
+
+  const finalBchServers = [...finalBchServerSet]
+  const finalCoreServers = [...finalCoreServerSet]
+  const finalNonSegwitServers = [...finalNonSegwitServerSet]
 
   const out: CheckServersResponse = {
     bchServers: finalBchServers,
