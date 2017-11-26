@@ -34,7 +34,11 @@ const SEED_SERVERS = [
   'electrum://electrum-bu-az-weuro.airbitz.co:50001',
   'electrum://electrum.hsmiths.com:8080',
   'electrum://e.anonyhost.org:50001',
-  'electrum://ELECTRUM.not.fyi:50001'
+  'electrum://ELECTRUM.not.fyi:50001',
+  'electrum://electrum.zone:50001',
+  'electrum://yui.kurophoto.com:50001',
+  'electrums://yui.kurophoto.com:50002',
+  'electrums://electrum.zone:50002'
 ]
 
 const bchServers = []
@@ -99,11 +103,12 @@ export async function checkServers (serverList:Array<string>): Promise<CheckServ
 
   let uniqueServers = Array.from(new Set(finalServers))
   // let uniqueServers = SEED_SERVERS
-
   console.log('Found ' + uniqueServers.length + ' unique peers to check')
 
   promiseArray = []
   // uniqueServers = ['electrum://electrum-bu-az-wjapan.airbitz.co:50001', 'electrum://electrum-bu-az-weuro.airbitz.co:50001']
+  // uniqueServers = ['electrum://cluelessperson.com:50001']
+
   for (let svr of uniqueServers) {
     const p = checkServer(svr)
     promiseArray.push(p)
@@ -115,10 +120,10 @@ export async function checkServers (serverList:Array<string>): Promise<CheckServ
     const serverUrl = result.serverUrl
     const blockHeight = result.blockHeight
     if (result.useServer === true) {
-      if (result.isBch === BCH_TRUE) {
+      if (result.isBch === BCH_TRUE && result.v11 === V11_TRUE) {
         bchServers.push({serverUrl, blockHeight})
         console.log('bchServers: [' + serverUrl + ']')
-      } else if (result.hasSegwit === SEGWIT_TRUE) {
+      } else if (result.hasSegwit === SEGWIT_TRUE && result.v11 === V11_TRUE) {
         coreServers.push({serverUrl, blockHeight})
         console.log('coreServers: [' + serverUrl + ']')
       } else {
@@ -216,17 +221,19 @@ function pruneLowBlockHeight (servers: Array<{serverUrl: string, blockHeight: nu
   return out
 }
 
-const ID_HEIGHT = 1
-const ID_HEADER = 2
-const ID_BANNER = 3
+const ID_VERSION = 1
+const ID_HEIGHT = 2
+const ID_HEADER = 3
 const ID_SEGWIT = 4
+const NUM_CHECKS = ID_SEGWIT
 
 type CheckServerResponse = {
   useServer: boolean,
   hasSegwit: number,
   isBch: number,
   blockHeight: number,
-  serverUrl: string
+  serverUrl: string,
+  v11: number
 }
 
 const UNKNOWN = 0
@@ -236,6 +243,9 @@ const SEGWIT_FALSE = 2
 
 const BCH_TRUE = 1
 const BCH_FALSE = 2
+
+const V11_TRUE = 1
+const V11_FALSE = 2
 
 function checkServer (serverUrl: string): Promise<CheckServerResponse> {
   return new Promise((resolve) => {
@@ -254,13 +264,13 @@ function checkServer (serverUrl: string): Promise<CheckServerResponse> {
       useServer: false,
       hasSegwit: UNKNOWN,
       isBch: UNKNOWN,
-      blockHeight: 0
+      blockHeight: 0,
+      v11: 0
     }
 
     let client
 
     const checks = [false, false, false, false, false, false, false, false]
-    const NUM_CHECKS = 4
 
     if (results === null) {
       resolve(out)
@@ -276,15 +286,15 @@ function checkServer (serverUrl: string): Promise<CheckServerResponse> {
       }
       client = tcp.connect({ port, host, rejectUnauthorized: false }, () => {
         console.log('****** checkServer:' + serverUrl)
-        let query = sprintf('{ "id": %d, "method": "blockchain.numblocks.subscribe", "params": [] }\n', ID_HEIGHT)
+        let query = sprintf('{ "id": %d, "method": "server.version", "params": ["1.1", "1.1"] }\n', ID_VERSION)
+        client.write(query)
+        console.log('query:' + query)
+
+        query = sprintf('{ "id": %d, "method": "blockchain.headers.subscribe", "params": [] }\n', ID_HEIGHT)
         client.write(query)
         console.log('query:' + query)
 
         query = sprintf('{ "id": %d, "method": "blockchain.block.get_header", "params": [' + CHECK_BLOCK_HEIGHT + '] }\n', ID_HEADER)
-        client.write(query)
-        console.log('query:' + query)
-
-        query = sprintf('{ "id": %d, "method": "server.banner", "params": [] }\n', ID_BANNER)
         client.write(query)
         console.log('query:' + query)
 
@@ -341,6 +351,9 @@ function checkServer (serverUrl: string): Promise<CheckServerResponse> {
             }
             if (response.blockHeight > 0) {
               out.blockHeight = response.blockHeight
+            }
+            if (response.v11 > UNKNOWN) {
+              out.v11 = response.v11
             }
           } else {
             console.log('checkServer FAIL:' + serverUrl)
@@ -403,6 +416,7 @@ type ProcessResponseType = {
   success: boolean,
   blockHeight: number,
   hasSegwit: number,
+  v11: number,
   isBch: number
 }
 
@@ -413,14 +427,17 @@ function processResponse (resultObj): ProcessResponseType {
     success: false,
     blockHeight: 0,
     hasSegwit: UNKNOWN,
-    isBch: UNKNOWN
+    isBch: UNKNOWN,
+    v11: UNKNOWN
   }
   if (resultObj !== null) {
     out.responseId = resultObj.id
     if (out.responseId === ID_HEIGHT) {
-      out.blockHeight = resultObj.result
-      out.responseId = ID_HEIGHT
-      out.success = true
+      if (typeof resultObj.result !== 'undefined') {
+        out.blockHeight = resultObj.result.block_height
+        out.responseId = ID_HEIGHT
+        out.success = true
+      }
     } else if (out.responseId === ID_HEADER) {
       out.success = true
       if (
@@ -432,16 +449,6 @@ function processResponse (resultObj): ProcessResponseType {
       } else {
         out.isBch = BCH_TRUE
         console.log('processResponse bitcoincash merkle')
-      }
-    } else if (out.responseId === ID_BANNER) {
-      if (typeof resultObj.result !== 'undefined') {
-        if (resultObj.result.toLowerCase().includes('electrumx')) {
-          out.success = true
-        } else {
-          console.log('processResponse FAIL electrumx')
-        }
-      } else {
-        console.log('processResponse FAIL result electrumx')
       }
     } else if (out.responseId === ID_SEGWIT) {
       if (typeof resultObj.result !== 'undefined') {
@@ -456,10 +463,39 @@ function processResponse (resultObj): ProcessResponseType {
       } else {
         console.log('processResponse FAIL result segwit')
       }
-    } else if (resultObj.method === 'blockchain.numblocks.subscribe') {
-      out.blockHeight = resultObj.params[0]
-      out.responseId = ID_HEIGHT
-      out.success = true
+    } else if (out.responseId === ID_VERSION) {
+      if (typeof resultObj.result !== 'undefined') {
+        const result = resultObj.result
+        if (typeof result === 'object' && result.length === 2) {
+          // Only accept ElectrumX servers since they don't prune history
+          if (result[0].toLowerCase().includes('electrumx')) {
+            out.success = true
+            console.log('processResponse PASS electrumx')
+          } else {
+            console.log('processResponse FAIL electrumx')
+          }
+          if (parseFloat(result[1]) >= 1.1) {
+            out.v11 = V11_TRUE
+            console.log('processResponse PASS version 1.1+')
+          } else {
+            out.v11 = V11_FALSE
+            console.log('processResponse FAIL version < 1.1 ')
+          }
+        } else if (typeof result === 'string') {
+          out.v11 = V11_FALSE
+          if (result.toLowerCase().includes('electrumx')) {
+            console.log('processResponse PASS electrumx')
+            out.success = true
+          } else {
+            console.log('processResponse FAIL electrumx')
+            out.success = false
+          }
+        } else {
+          console.log('processResponse FAIL 1 result invalid')
+        }
+      } else {
+        console.log('processResponse FAIL 2 result undefined')
+      }
     } else {
       console.log('processResponse FAIL processid')
     }
