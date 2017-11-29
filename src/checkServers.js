@@ -8,8 +8,9 @@ const tls = require('tls')
 // const childProcess = require('child_process')
 
 const CHECK_BLOCK_HEIGHT = '484253'
-const CHECK_BLOCK_MERKLE = '378f5397b121e4828d8295f2496dcd093e4776b2214f2080782586a3cb4cd5c4'
-
+const CHECK_BLOCK_MERKLE_BTC = '378f5397b121e4828d8295f2496dcd093e4776b2214f2080782586a3cb4cd5c4'
+const CHECK_BLOCK_MERKLE_LTC = '20f5ef8eeb44d156faafb40bcdf4d46595b67766d478ac7febe634c3ea7d3424'
+const CHECK_BLOCK_MERKLE_BCH = '2ae67f75ac7bf080f5092ec547d548d895cfe9f92de1bdcf2d157c56280aebe1'
 const CHECK_SEGWIT_TX_ID = 'ef298148f25162db85127b83daefe07e46b06078f95aa30969b007a09a722b61'
 // const CHECK_NONSEGWIT_TX_RAW = '0100000002f8a7d578817bb42636a2552de53db822f30d776133ec3d1b9c58f435342e50ad000000002322002096c365c331033867275b5b693000e7396baa02cbeca80d605356c5acf3d9b0deffffffffe023a2e5ee2b63957e8e40a5a1ef3cf21f0de201af0da674d19e35a415394407000000002322002015e61ade874e81c9efcdb6739be8b67332c190554759cc5e144937f6974b7a77ffffffff02060e0600000000001976a91440f857348a9e1282b6455d83db110ae204b7268388acc06998000000000017a914395cc0ef446992db0694a8ee6a52274bab0a4c8c8700000000'
 const CHECK_NONSEGWIT_TX_RAW = '0100000002f8a7d578817bb4'
@@ -40,9 +41,11 @@ const SEED_SERVERS = [
   'electrums://yui.kurophoto.com:50002',
   'electrums://electrum.zone:50002',
   'electrum://abc1.hsmiths.com:60001',
-  'electrum://electrum-ltc.festivaldelhumor.org:60001'
+  'electrum://electrum-ltc.festivaldelhumor.org:60001',
+  'electrum://electrum-ltc.petrkr.net:60001'
 ]
 
+const ltcServers = []
 const bchServers = []
 const nonSegwitServers = []
 const coreServers = []
@@ -61,6 +64,7 @@ function dateString () {
 // }
 
 type CheckServersResponse = {
+  ltcServers: Array<string>,
   bchServers: Array<string>,
   coreServers: Array<string>,
   nonSegwitServers: Array<string>,
@@ -110,6 +114,7 @@ export async function checkServers (serverList:Array<string>): Promise<CheckServ
   promiseArray = []
   // uniqueServers = ['electrum://electrum-bu-az-wjapan.airbitz.co:50001', 'electrum://electrum-bu-az-weuro.airbitz.co:50001']
   // uniqueServers = ['electrum://cluelessperson.com:50001']
+  // uniqueServers = ['electrum://electrum-ltc.petrkr.net:60001', 'electrum://electrum-ltc.festivaldelhumor.org:60001']
 
   for (let svr of uniqueServers) {
     const p = checkServer(svr)
@@ -122,13 +127,16 @@ export async function checkServers (serverList:Array<string>): Promise<CheckServ
     const serverUrl = result.serverUrl
     const blockHeight = result.blockHeight
     if (result.useServer === true) {
-      if (result.isBch === BCH_TRUE && result.v11 === V11_TRUE) {
+      if (result.isBch === CHK_TRUE && result.v11 === CHK_TRUE) {
         bchServers.push({serverUrl, blockHeight})
         console.log('bchServers: [' + serverUrl + ']')
-      } else if (result.hasSegwit === SEGWIT_TRUE && result.v11 === V11_TRUE) {
+      } else if (result.isLtc === CHK_TRUE && result.v11 === CHK_TRUE) {
+        ltcServers.push({serverUrl, blockHeight})
+        console.log('ltcServers: [' + serverUrl + ']')
+      } else if (result.isBtc === CHK_TRUE && result.hasSegwit === CHK_TRUE && result.v11 === CHK_TRUE) {
         coreServers.push({serverUrl, blockHeight})
         console.log('coreServers: [' + serverUrl + ']')
-      } else if (result.hasSegwit === SEGWIT_FALSE) {
+      } else if (result.isBtc === CHK_TRUE && result.hasSegwit === CHK_FALSE) {
         // Assume non-segwit, legacy core server
         nonSegwitServers.push({serverUrl, blockHeight})
         console.log('nonSegwitServers: [' + serverUrl + ']')
@@ -140,6 +148,7 @@ export async function checkServers (serverList:Array<string>): Promise<CheckServ
       badServers.push(serverUrl)
       console.log('bad server: [' + serverUrl + ']')
     }
+    console.log('num ltcServers      :' + ltcServers.length)
     console.log('num bchServers      :' + bchServers.length)
     console.log('num coreServers     :' + coreServers.length)
     console.log('num nonSegwitServers:' + nonSegwitServers.length)
@@ -148,43 +157,56 @@ export async function checkServers (serverList:Array<string>): Promise<CheckServ
       break
     }
   }
-  console.log('\n' + bchServers.length + ' BCH SERVERS')
-  for (let s of bchServers) {
-    console.log(s.serverUrl)
-  }
-  console.log('\n' + coreServers.length + ' Core SERVERS:\n')
-  for (let s of coreServers) {
-    console.log(s.serverUrl)
-  }
-  console.log('\n' + nonSegwitServers.length + ' NonSegwit SERVERS:\n')
-  for (let s of nonSegwitServers) {
-    console.log(s.serverUrl)
-  }
 
-  console.log('\n' + badServers.length + ' BAD SERVERS:\n')
-  for (let s of badServers) {
-    console.log(s)
-  }
-
+  const bestLtcServers = pruneLowBlockHeight(ltcServers)
   const bestBchServers = pruneLowBlockHeight(bchServers)
   const bestCoreServers = pruneLowBlockHeight(coreServers)
   const bestNonSegwitServers = pruneLowBlockHeight(nonSegwitServers)
 
+  const finalLtcServerSet = new Set(bestLtcServers)
   const finalBchServerSet = new Set(bestBchServers)
   const finalCoreServerSet = new Set(bestCoreServers)
   const finalNonSegwitServerSet = new Set(bestNonSegwitServers)
 
+  const finalLtcServers = [...finalLtcServerSet]
   const finalBchServers = [...finalBchServerSet]
   const finalCoreServers = [...finalCoreServerSet]
   const finalNonSegwitServers = [...finalNonSegwitServerSet]
 
   const out: CheckServersResponse = {
+    ltcServers: finalLtcServers,
     bchServers: finalBchServers,
     coreServers: finalCoreServers,
     nonSegwitServers: finalNonSegwitServers,
     btc2xServers: [],
     badServers
   }
+
+  console.log('\n' + out.ltcServers.length + ' LTC SERVERS')
+  for (let s of out.ltcServers) {
+    console.log(s)
+  }
+  console.log('\n' + out.bchServers.length + ' BCH SERVERS')
+  for (let s of out.bchServers) {
+    console.log(s)
+  }
+  console.log('\n' + out.coreServers.length + ' Core SERVERS:\n')
+  for (let s of out.coreServers) {
+    console.log(s)
+  }
+  console.log('\n' + out.nonSegwitServers.length + ' NonSegwit SERVERS:\n')
+  for (let s of out.nonSegwitServers) {
+    console.log(s)
+  }
+  console.log('\n' + out.badServers.length + ' BAD SERVERS:\n')
+  for (let s of out.badServers) {
+    console.log(s)
+  }
+  console.log('num ltcServers      :' + out.ltcServers.length)
+  console.log('num bchServers      :' + out.bchServers.length)
+  console.log('num coreServers     :' + out.coreServers.length)
+  console.log('num nonSegwitServers:' + out.nonSegwitServers.length)
+  console.log('num badServers      :' + out.badServers.length)
 
   return out
 }
@@ -235,6 +257,8 @@ const NUM_CHECKS = ID_SEGWIT
 type CheckServerResponse = {
   useServer: boolean,
   hasSegwit: number,
+  isBtc: number,
+  isLtc: number,
   isBch: number,
   blockHeight: number,
   serverUrl: string,
@@ -242,15 +266,8 @@ type CheckServerResponse = {
 }
 
 const UNKNOWN = 0
-
-const SEGWIT_TRUE = 1
-const SEGWIT_FALSE = 2
-
-const BCH_TRUE = 1
-const BCH_FALSE = 2
-
-const V11_TRUE = 1
-const V11_FALSE = 2
+const CHK_TRUE = 1
+const CHK_FALSE = 2
 
 function checkServer (serverUrl: string): Promise<CheckServerResponse> {
   return new Promise((resolve) => {
@@ -268,7 +285,9 @@ function checkServer (serverUrl: string): Promise<CheckServerResponse> {
       serverUrl,
       useServer: false,
       hasSegwit: UNKNOWN,
+      isBtc: UNKNOWN,
       isBch: UNKNOWN,
+      isLtc: UNKNOWN,
       blockHeight: 0,
       v11: 0
     }
@@ -351,8 +370,14 @@ function checkServer (serverUrl: string): Promise<CheckServerResponse> {
             if (response.hasSegwit > UNKNOWN) {
               out.hasSegwit = response.hasSegwit
             }
+            if (response.isBtc > UNKNOWN) {
+              out.isBtc = response.isBtc
+            }
             if (response.isBch > UNKNOWN) {
               out.isBch = response.isBch
+            }
+            if (response.isLtc > UNKNOWN) {
+              out.isLtc = response.isLtc
             }
             if (response.blockHeight > 0) {
               out.blockHeight = response.blockHeight
@@ -360,6 +385,7 @@ function checkServer (serverUrl: string): Promise<CheckServerResponse> {
             if (response.v11 > UNKNOWN) {
               out.v11 = response.v11
             }
+            console.log('processResponse: ' + serverUrl, out)
           } else {
             console.log('checkServer FAIL:' + serverUrl)
             console.log(result)
@@ -422,7 +448,9 @@ type ProcessResponseType = {
   blockHeight: number,
   hasSegwit: number,
   v11: number,
-  isBch: number
+  isBtc: number,
+  isBch: number,
+  isLtc: number
 }
 
 function processResponse (resultObj): ProcessResponseType {
@@ -432,7 +460,9 @@ function processResponse (resultObj): ProcessResponseType {
     success: false,
     blockHeight: 0,
     hasSegwit: UNKNOWN,
+    isBtc: UNKNOWN,
     isBch: UNKNOWN,
+    isLtc: UNKNOWN,
     v11: UNKNOWN
   }
   if (resultObj !== null) {
@@ -444,25 +474,32 @@ function processResponse (resultObj): ProcessResponseType {
         out.success = true
       }
     } else if (out.responseId === ID_HEADER) {
-      out.success = true
       if (
         typeof resultObj.result !== 'undefined' &&
-        typeof resultObj.result.merkle_root !== 'undefined' &&
-        resultObj.result.merkle_root === CHECK_BLOCK_MERKLE) {
-        out.isBch = BCH_FALSE
-        console.log('processResponse non-bitcoincash merkle')
-      } else {
-        out.isBch = BCH_TRUE
-        console.log('processResponse bitcoincash merkle')
+        typeof resultObj.result.merkle_root !== 'undefined'
+      ) {
+        if (resultObj.result.merkle_root === CHECK_BLOCK_MERKLE_BTC) {
+          out.isBtc = CHK_TRUE
+          console.log('processResponse bitcoin core merkle')
+          out.success = true
+        } else if (resultObj.result.merkle_root === CHECK_BLOCK_MERKLE_BCH) {
+          out.isBch = CHK_TRUE
+          console.log('processResponse bitcoincash merkle')
+          out.success = true
+        } else if (resultObj.result.merkle_root === CHECK_BLOCK_MERKLE_LTC) {
+          out.isLtc = CHK_TRUE
+          console.log('processResponse litecoin merkle')
+          out.success = true
+        }
       }
     } else if (out.responseId === ID_SEGWIT) {
       out.success = true
       if (typeof resultObj.result !== 'undefined') {
         if (resultObj.result.toLowerCase().includes(CHECK_NONSEGWIT_TX_RAW)) {
-          out.hasSegwit = SEGWIT_FALSE
+          out.hasSegwit = CHK_FALSE
           console.log('processResponse no segwit')
         } else {
-          out.hasSegwit = SEGWIT_TRUE
+          out.hasSegwit = CHK_TRUE
           console.log('processResponse has segwit')
         }
       } else {
@@ -480,14 +517,14 @@ function processResponse (resultObj): ProcessResponseType {
             console.log('processResponse FAIL electrumx')
           }
           if (parseFloat(result[1]) >= 1.1) {
-            out.v11 = V11_TRUE
+            out.v11 = CHK_TRUE
             console.log('processResponse PASS version 1.1+')
           } else {
-            out.v11 = V11_FALSE
+            out.v11 = CHK_FALSE
             console.log('processResponse FAIL version < 1.1 ')
           }
         } else if (typeof result === 'string') {
-          out.v11 = V11_FALSE
+          out.v11 = CHK_FALSE
           if (result.toLowerCase().includes('electrumx')) {
             console.log('processResponse PASS electrumx')
             out.success = true
