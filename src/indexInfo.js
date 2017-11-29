@@ -199,7 +199,8 @@ async function engineLoop () {
       BC1: [],
       BC2: [],
       LTC: [],
-      BCH: []
+      BCH: [],
+      DASH: []
     }
     try {
       const results = await dbAuth.get('electrumServers')
@@ -215,7 +216,7 @@ async function engineLoop () {
     try {
       mylog('***********************************')
       mylog(dateString() + ': Calling checkServers')
-      const seedServers = electrumServers.BTC.concat(electrumServers.BC1).concat(electrumServers.BC2).concat(electrumServers.BCH).concat(electrumServers.LTC)
+      const seedServers = electrumServers.BTC.concat(electrumServers.BC1).concat(electrumServers.BC2).concat(electrumServers.BCH).concat(electrumServers.LTC).concat(electrumServers.DASH)
       const results = await checkServers(seedServers)
       console.log(dateString())
       console.log(results)
@@ -225,6 +226,7 @@ async function engineLoop () {
         electrumServers.BC2 = results.btc2xServers
         electrumServers.BCH = results.bchServers
         electrumServers.LTC = results.ltcServers
+        electrumServers.DASH = results.dashServers
         await dbAuth.insert(electrumServers, 'electrumServers')
       }
     } catch (e) {

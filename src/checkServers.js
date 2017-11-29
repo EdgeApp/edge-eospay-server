@@ -11,6 +11,8 @@ const CHECK_BLOCK_HEIGHT = '484253'
 const CHECK_BLOCK_MERKLE_BTC = '378f5397b121e4828d8295f2496dcd093e4776b2214f2080782586a3cb4cd5c4'
 const CHECK_BLOCK_MERKLE_LTC = '20f5ef8eeb44d156faafb40bcdf4d46595b67766d478ac7febe634c3ea7d3424'
 const CHECK_BLOCK_MERKLE_BCH = '2ae67f75ac7bf080f5092ec547d548d895cfe9f92de1bdcf2d157c56280aebe1'
+const CHECK_BLOCK_MERKLE_DASH = '6cb1221dd25d5effed5ea4fe60c8400dc0f04eff038e73329c6cdeaa116a9415'
+
 const CHECK_SEGWIT_TX_ID = 'ef298148f25162db85127b83daefe07e46b06078f95aa30969b007a09a722b61'
 // const CHECK_NONSEGWIT_TX_RAW = '0100000002f8a7d578817bb42636a2552de53db822f30d776133ec3d1b9c58f435342e50ad000000002322002096c365c331033867275b5b693000e7396baa02cbeca80d605356c5acf3d9b0deffffffffe023a2e5ee2b63957e8e40a5a1ef3cf21f0de201af0da674d19e35a415394407000000002322002015e61ade874e81c9efcdb6739be8b67332c190554759cc5e144937f6974b7a77ffffffff02060e0600000000001976a91440f857348a9e1282b6455d83db110ae204b7268388acc06998000000000017a914395cc0ef446992db0694a8ee6a52274bab0a4c8c8700000000'
 const CHECK_NONSEGWIT_TX_RAW = '0100000002f8a7d578817bb4'
@@ -42,9 +44,13 @@ const SEED_SERVERS = [
   'electrums://electrum.zone:50002',
   'electrum://abc1.hsmiths.com:60001',
   'electrum://electrum-ltc.festivaldelhumor.org:60001',
-  'electrum://electrum-ltc.petrkr.net:60001'
+  'electrum://electrum-ltc.petrkr.net:60001',
+  'electrum://electrum.dash.siampm.com:50001',
+  'electrum://e-1.claudioboxx.com:50005',
+  'electrum://electrum.leblancnet.us:50015'
 ]
 
+const dashServers = []
 const ltcServers = []
 const bchServers = []
 const nonSegwitServers = []
@@ -64,6 +70,7 @@ function dateString () {
 // }
 
 type CheckServersResponse = {
+  dashServers: Array<string>,
   ltcServers: Array<string>,
   bchServers: Array<string>,
   coreServers: Array<string>,
@@ -133,6 +140,9 @@ export async function checkServers (serverList:Array<string>): Promise<CheckServ
       } else if (result.isLtc === CHK_TRUE && result.v11 === CHK_TRUE) {
         ltcServers.push({serverUrl, blockHeight})
         console.log('ltcServers: [' + serverUrl + ']')
+      } else if (result.isDash === CHK_TRUE && result.v11 === CHK_TRUE) {
+        dashServers.push({serverUrl, blockHeight})
+        console.log('dashServers: [' + serverUrl + ']')
       } else if (result.isBtc === CHK_TRUE && result.hasSegwit === CHK_TRUE && result.v11 === CHK_TRUE) {
         coreServers.push({serverUrl, blockHeight})
         console.log('coreServers: [' + serverUrl + ']')
@@ -148,6 +158,7 @@ export async function checkServers (serverList:Array<string>): Promise<CheckServ
       badServers.push(serverUrl)
       console.log('bad server: [' + serverUrl + ']')
     }
+    console.log('num dashServers      :' + dashServers.length)
     console.log('num ltcServers      :' + ltcServers.length)
     console.log('num bchServers      :' + bchServers.length)
     console.log('num coreServers     :' + coreServers.length)
@@ -158,22 +169,26 @@ export async function checkServers (serverList:Array<string>): Promise<CheckServ
     }
   }
 
+  const bestdashServers = pruneLowBlockHeight(dashServers)
   const bestLtcServers = pruneLowBlockHeight(ltcServers)
   const bestBchServers = pruneLowBlockHeight(bchServers)
   const bestCoreServers = pruneLowBlockHeight(coreServers)
   const bestNonSegwitServers = pruneLowBlockHeight(nonSegwitServers)
 
+  const finaldashServerSet = new Set(bestdashServers)
   const finalLtcServerSet = new Set(bestLtcServers)
   const finalBchServerSet = new Set(bestBchServers)
   const finalCoreServerSet = new Set(bestCoreServers)
   const finalNonSegwitServerSet = new Set(bestNonSegwitServers)
 
+  const finaldashServers = [...finaldashServerSet]
   const finalLtcServers = [...finalLtcServerSet]
   const finalBchServers = [...finalBchServerSet]
   const finalCoreServers = [...finalCoreServerSet]
   const finalNonSegwitServers = [...finalNonSegwitServerSet]
 
   const out: CheckServersResponse = {
+    dashServers: finaldashServers,
     ltcServers: finalLtcServers,
     bchServers: finalBchServers,
     coreServers: finalCoreServers,
@@ -182,6 +197,10 @@ export async function checkServers (serverList:Array<string>): Promise<CheckServ
     badServers
   }
 
+  console.log('\n' + out.dashServers.length + ' DASH SERVERS')
+  for (let s of out.dashServers) {
+    console.log(s)
+  }
   console.log('\n' + out.ltcServers.length + ' LTC SERVERS')
   for (let s of out.ltcServers) {
     console.log(s)
@@ -202,6 +221,7 @@ export async function checkServers (serverList:Array<string>): Promise<CheckServ
   for (let s of out.badServers) {
     console.log(s)
   }
+  console.log('num dashServers      :' + out.dashServers.length)
   console.log('num ltcServers      :' + out.ltcServers.length)
   console.log('num bchServers      :' + out.bchServers.length)
   console.log('num coreServers     :' + out.coreServers.length)
@@ -259,6 +279,7 @@ type CheckServerResponse = {
   hasSegwit: number,
   isBtc: number,
   isLtc: number,
+  isDash: number,
   isBch: number,
   blockHeight: number,
   serverUrl: string,
@@ -288,6 +309,7 @@ function checkServer (serverUrl: string): Promise<CheckServerResponse> {
       isBtc: UNKNOWN,
       isBch: UNKNOWN,
       isLtc: UNKNOWN,
+      isDash: UNKNOWN,
       blockHeight: 0,
       v11: 0
     }
@@ -379,6 +401,9 @@ function checkServer (serverUrl: string): Promise<CheckServerResponse> {
             if (response.isLtc > UNKNOWN) {
               out.isLtc = response.isLtc
             }
+            if (response.isDash > UNKNOWN) {
+              out.isDash = response.isDash
+            }
             if (response.blockHeight > 0) {
               out.blockHeight = response.blockHeight
             }
@@ -450,7 +475,8 @@ type ProcessResponseType = {
   v11: number,
   isBtc: number,
   isBch: number,
-  isLtc: number
+  isLtc: number,
+  isDash: number
 }
 
 function processResponse (resultObj): ProcessResponseType {
@@ -463,6 +489,7 @@ function processResponse (resultObj): ProcessResponseType {
     isBtc: UNKNOWN,
     isBch: UNKNOWN,
     isLtc: UNKNOWN,
+    isDash: UNKNOWN,
     v11: UNKNOWN
   }
   if (resultObj !== null) {
@@ -489,6 +516,10 @@ function processResponse (resultObj): ProcessResponseType {
         } else if (resultObj.result.merkle_root === CHECK_BLOCK_MERKLE_LTC) {
           out.isLtc = CHK_TRUE
           console.log('processResponse litecoin merkle')
+          out.success = true
+        } else if (resultObj.result.merkle_root === CHECK_BLOCK_MERKLE_DASH) {
+          out.isDash = CHK_TRUE
+          console.log('processResponse dash merkle')
           out.success = true
         }
       }
