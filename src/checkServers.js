@@ -38,7 +38,9 @@ const SEED_SERVERS = [
   'electrum://electrum.zone:50001',
   'electrum://yui.kurophoto.com:50001',
   'electrums://yui.kurophoto.com:50002',
-  'electrums://electrum.zone:50002'
+  'electrums://electrum.zone:50002',
+  'electrum://abc1.hsmiths.com:60001',
+  'electrum://electrum-ltc.festivaldelhumor.org:60001'
 ]
 
 const bchServers = []
@@ -126,10 +128,13 @@ export async function checkServers (serverList:Array<string>): Promise<CheckServ
       } else if (result.hasSegwit === SEGWIT_TRUE && result.v11 === V11_TRUE) {
         coreServers.push({serverUrl, blockHeight})
         console.log('coreServers: [' + serverUrl + ']')
-      } else {
+      } else if (result.hasSegwit === SEGWIT_FALSE) {
         // Assume non-segwit, legacy core server
         nonSegwitServers.push({serverUrl, blockHeight})
         console.log('nonSegwitServers: [' + serverUrl + ']')
+      } else {
+        badServers.push(serverUrl)
+        console.log('bad server: [' + serverUrl + ']')
       }
     } else {
       badServers.push(serverUrl)
@@ -451,8 +456,8 @@ function processResponse (resultObj): ProcessResponseType {
         console.log('processResponse bitcoincash merkle')
       }
     } else if (out.responseId === ID_SEGWIT) {
+      out.success = true
       if (typeof resultObj.result !== 'undefined') {
-        out.success = true
         if (resultObj.result.toLowerCase().includes(CHECK_NONSEGWIT_TX_RAW)) {
           out.hasSegwit = SEGWIT_FALSE
           console.log('processResponse no segwit')
