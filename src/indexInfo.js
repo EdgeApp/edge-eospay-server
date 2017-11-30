@@ -220,7 +220,13 @@ async function engineLoop () {
       const results = await checkServers(seedServers)
       console.log(dateString())
       console.log(results)
-      if (typeof results !== 'undefined') {
+      if (
+        typeof results !== 'undefined' &&
+        results.nonSegwitServers.length >= 3 &&
+        results.coreServers.length >= 3 &&
+        results.bchServers.length >= 3 &&
+        results.ltcServers.length >= 3
+      ) {
         electrumServers.BTC = results.nonSegwitServers
         electrumServers.BC1 = results.coreServers
         electrumServers.BC2 = results.btc2xServers
