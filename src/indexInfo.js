@@ -163,7 +163,21 @@ router.get('/appIdInfo/:appId', function (req, res) {
     if (typeof networkFees[req.params.appId] === 'object') {
       res.json(networkFees[req.params.appId])
     } else {
-      res.json('Unable to find networkFees ' + req.params.appId)
+      res.json('Unable to find app id ' + req.params.appId)
+    }
+  }).catch(err => {
+    res.json(err)
+  })
+})
+
+router.get('/appIdInfo', function (req, res) {
+  mylog('API /appIdInfo/')
+
+  dbAuth.get('appIdInfo').then(networkFees => {
+    if (typeof networkFees['co.edgesecure'] === 'object') {
+      res.json(networkFees['co.edgesecure'])
+    } else {
+      res.json('Unable to find app id (blank string) ')
     }
   }).catch(err => {
     res.json(err)
