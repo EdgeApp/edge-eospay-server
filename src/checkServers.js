@@ -142,7 +142,7 @@ type CheckServersResponse = {
   [currencyCode: string]: Array<string>
 }
 
-export async function checkServers (serverList:Array<string>): Promise<CheckServersResponse> {
+async function checkServers (serverList:Array<string>): Promise<CheckServersResponse> {
   let servers = SEED_SERVERS.concat(serverList)
   let startServers = servers.slice()
   let promiseArray = []
@@ -194,7 +194,7 @@ export async function checkServers (serverList:Array<string>): Promise<CheckServ
     let coreIdx = -1
     for (let idx = 0; idx < _serverInfos.length; idx++) {
       // Hack to match Core server type
-      if ('BC1' === _serverInfos[idx].currencyCode) {
+      if (_serverInfos[idx].currencyCode === 'BC1') {
         coreIdx = idx
       }
       if (result.currencyCode === _serverInfos[idx].currencyCode) {
@@ -591,3 +591,5 @@ function checkServer (serverUrl: string): Promise<ServerResults | null> {
     }
   })
 }
+
+module.exports = { checkServers }

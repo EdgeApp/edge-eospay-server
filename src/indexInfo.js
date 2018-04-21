@@ -3,21 +3,21 @@
 // BASE SETUP
 // =============================================================================
 
-import fs from 'fs'
-import http from 'http'
-import https from 'https'
-import express from 'express'        // call express
-import bodyParser from 'body-parser'
-import cors from 'cors'
-import nano from 'nano'
-import promisify from 'promisify-node'
-import { checkServers } from './checkServers.js'
+const fs = require('fs')
+const http = require('http')
+const https = require('https')
+const express = require('express')
+const bodyParser = require('body-parser')
+const cors = require('cors')
+const nano = require('nano')
+const promisify = require('promisify-node')
+const { checkServers } = require('./checkServers.js')
 
 const CONFIG = require('../serverConfig.json')
 const LOOP_DELAY_MS = 1000 * 60 * 60 // Delay an hour between checks
 
 // call the packages we need
-const app = express()                 // define our app using express
+const app = express()
 
 const mylog = console.log
 
@@ -60,7 +60,7 @@ promisify(dbLogs)
 
 // ROUTES FOR OUR API
 // =============================================================================
-const router = express.Router()              // get an instance of the express Router
+const router = express.Router()
 
 // middleware to use for all requests
 router.use(function (req, res, next) {

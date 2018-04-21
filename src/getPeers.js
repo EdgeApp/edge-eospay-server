@@ -8,7 +8,7 @@ function dateString () {
   return date.toDateString() + ':' + date.toTimeString()
 }
 
-export function getPeers (_serverUrl: string) {
+function getPeers (_serverUrl: string) {
   const serverUrl = _serverUrl
   return new Promise((resolve) => {
     console.log('*********** getPeers: ' + serverUrl)
@@ -140,3 +140,5 @@ export function getPeers (_serverUrl: string) {
     }, 10000)
   })
 }
+
+module.exports = { getPeers }

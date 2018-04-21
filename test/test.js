@@ -2,7 +2,7 @@
  * Created by paul on 9/8/17.
  */
 /* global describe it */
-const checkServers = require('../lib/checkServers.js').checkServers
+const { checkServers } = require('../lib/checkServers.js')
 
 const assert = require('assert')
 
