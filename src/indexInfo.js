@@ -215,7 +215,9 @@ async function engineLoop () {
       BC2: [],
       LTC: [],
       BCH: [],
-      DASH: []
+      DASH: [],
+      QTUM: [],
+      BAD: []
     }
     try {
       const results = await dbAuth.get('electrumServers')
@@ -231,13 +233,20 @@ async function engineLoop () {
     try {
       mylog('***********************************')
       mylog(dateString() + ': Calling checkServers')
-      const seedServers = electrumServers.BTC.concat(electrumServers.BC1).concat(electrumServers.BC2).concat(electrumServers.BCH).concat(electrumServers.LTC).concat(electrumServers.DASH)
+      const seedServers =
+        electrumServers.BTC
+          .concat(electrumServers.BC1)
+          .concat(electrumServers.BC2)
+          .concat(electrumServers.BCH)
+          .concat(electrumServers.LTC)
+          .concat(electrumServers.DASH)
+          .concat(electrumServers.QTUM)
       const results = await checkServers(seedServers)
       console.log(dateString())
       console.log(results)
 
       for (const cc in results) {
-        if (results[cc].length < 3 && cc !== 'BAD') {
+        if (results[cc].length < 2 && cc !== 'BAD') {
           throw new Error('Too few servers')
         }
       }
@@ -246,11 +255,13 @@ async function engineLoop () {
           throw new Error('Too few currency codes')
         }
       }
-      await dbAuth.insert(results, 'electrumServers')
+      electrumServers = Object.assign(electrumServers, results)
+      await dbAuth.insert(electrumServers, 'electrumServers')
     } catch (e) {
       console.log(dateString())
       console.log(e)
     }
+    mylog('SNOOZING ***********************************')
     await snooze(LOOP_DELAY_MS)
   }
 }

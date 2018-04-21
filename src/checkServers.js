@@ -7,25 +7,37 @@ const { getPeers } = require('./getPeers.js')
 const { serverInfos } = require('./serverInfos.js')
 const _serverInfos = serverInfos
 
+// const SEED_SERVERS_SSL = [
+//   'electrums://electrum-bc-az-eusa.airbitz.co:50002',
+//   'electrums://electrum-bu-az-wusa2.airbitz.co:50002',
+//   'electrums://electrum-bu-az-ausw.airbitz.co:50002',
+//   'electrums://electrum-bu-az-wjapan.airbitz.co:50002',
+//   'electrums://electrum-bu-az-weuro.airbitz.co:50002',
+//   'electrums://yui.kurophoto.com:50002',
+//   'electrums://electrum.zone:50002',
+//   'electrums://s1.qtum.info:50002',
+//   'electrums://s2.qtum.info:50002',
+//   'electrums://s3.qtum.info:50002',
+//   'electrums://s4.qtum.info:50002',
+//   'electrums://s5.qtum.info:50002',
+//   'electrums://s6.qtum.info:50002',
+//   'electrums://s7.qtum.info:50002',
+//   'electrums://s8.qtum.info:50002',
+//   'electrums://s9.qtum.info:50002'
+// ]
+
 const SEED_SERVERS = [
   'electrum://electrum.jdubya.info:50001',
-  'electrums://electrum-bc-az-eusa.airbitz.co:50002',
   'electrum://electrum-bc-az-eusa.airbitz.co:50001',
-  'electrums://electrum-bu-az-wusa2.airbitz.co:50002',
   'electrum://electrum-bu-az-wusa2.airbitz.co:50001',
-  'electrums://electrum-bu-az-wjapan.airbitz.co:50002',
   'electrum://electrum-bu-az-wjapan.airbitz.co:50001',
-  'electrums://electrum-bu-az-ausw.airbitz.co:50002',
   'electrum://electrum-bu-az-ausw.airbitz.co:50001',
-  'electrums://electrum-bu-az-weuro.airbitz.co:50002',
   'electrum://electrum-bu-az-weuro.airbitz.co:50001',
   'electrum://electrum.hsmiths.com:8080',
   'electrum://e.anonyhost.org:50001',
   'electrum://ELECTRUM.not.fyi:50001',
   'electrum://electrum.zone:50001',
   'electrum://yui.kurophoto.com:50001',
-  'electrums://yui.kurophoto.com:50002',
-  'electrums://electrum.zone:50002',
   'electrum://abc1.hsmiths.com:60001',
   'electrum://electrum-ltc.festivaldelhumor.org:60001',
   'electrum://electrum-ltc.petrkr.net:60001',
@@ -40,16 +52,7 @@ const SEED_SERVERS = [
   'electrum://s6.qtum.info:50001',
   'electrum://s7.qtum.info:50001',
   'electrum://s8.qtum.info:50001',
-  'electrum://s9.qtum.info:50001',
-  'electrums://s1.qtum.info:50002',
-  'electrums://s2.qtum.info:50002',
-  'electrums://s3.qtum.info:50002',
-  'electrums://s4.qtum.info:50002',
-  'electrums://s5.qtum.info:50002',
-  'electrums://s6.qtum.info:50002',
-  'electrums://s7.qtum.info:50002',
-  'electrums://s8.qtum.info:50002',
-  'electrums://s9.qtum.info:50002'
+  'electrum://s9.qtum.info:50001'
 ]
 // const SEED_SERVERS = [
 //   'electrum://electrum-bc-az-eusa.airbitz.co:50001',
@@ -71,18 +74,23 @@ async function checkServers (serverList:Array<string>): Promise<CheckServersResp
   //
   // Loop over all servers
   //
+  let getPeersResults:Array<any> = []
   for (let server of servers) {
-    console.log(server)
+    console.log('Getting peers from server:' + server)
     const p = getPeers(server)
     promiseArray.push(p)
+    if (promiseArray.length >= 200) {
+      getPeersResults = getPeersResults.concat(await Promise.all(promiseArray))
+      promiseArray = []
+    }
   }
 
-  let getPeersResults:Array<any> = await Promise.all(promiseArray)
+  getPeersResults = getPeersResults.concat(await Promise.all(promiseArray))
 
   for (const result of getPeersResults) {
     // Each result is an array of peers or -1 if that server failed
     if (result.peers === -1) {
-      _serverInfos[0].serverList.push(result.serverUrl)
+      _serverInfos[0].serverList.push({serverUrl: result.serverUrl, blockHeight: 0})
     } else {
       startServers = startServers.concat(result.peers)
     }
@@ -97,12 +105,20 @@ async function checkServers (serverList:Array<string>): Promise<CheckServersResp
   // uniqueServers = ['electrum://cluelessperson.com:50001']
   // uniqueServers = ['electrum://electrum-ltc.petrkr.net:60001', 'electrum://electrum-ltc.festivaldelhumor.org:60001']
 
+  let results: Array<ServerResults | null> = []
+
   for (let svr of uniqueServers) {
+    console.log('Checking server:' + svr)
     const p = checkServer(svr)
     promiseArray.push(p)
+    if (promiseArray.length >= 50) {
+      results = results.concat(await Promise.all(promiseArray))
+      console.log('Writing results up to: ' + results.length)
+      promiseArray = []
+    }
   }
 
-  const results: Array<ServerResults | null> = await Promise.all(promiseArray)
+  results = results.concat(await Promise.all(promiseArray))
 
   for (const result: ServerResults | null of results) {
     if (!result) {
@@ -370,6 +386,9 @@ function checkServer (serverUrl: string): Promise<ServerResults | null> {
   return new Promise((resolve) => {
     let regex
     let ssl = false
+    if (typeof serverUrl !== 'string') {
+      resolve(null)
+    }
     if (serverUrl.startsWith('electrums:')) {
       regex = new RegExp(/electrums:\/\/(.*):(.*)/)
       ssl = true
@@ -507,7 +526,8 @@ function checkServer (serverUrl: string): Promise<ServerResults | null> {
       })
 
       client.on('error', (err) => {
-        console.log(`${serverUrl}: Socket ERROR`, err)
+        const e = err.code ? err.code : ''
+        console.log(`${serverUrl}: Socket ERROR: ${e}`)
         resolved = true
         resolve(null)
       })

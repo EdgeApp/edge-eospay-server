@@ -15,6 +15,9 @@ function getPeers (_serverUrl: string) {
     // let regex = new RegExp(/electrum:\/\/(.*):(.*)/)
     let regex
     let ssl = false
+    if (typeof serverUrl !== 'string') {
+      resolve({serverUrl, peers: -1})
+    }
     if (serverUrl.startsWith('electrums:')) {
       regex = new RegExp(/electrums:\/\/(.*):(.*)/)
       ssl = true
@@ -98,14 +101,15 @@ function getPeers (_serverUrl: string) {
           }
 
           if (parseInt(sport) > 0) {
-            const url = 'electrums://' + serverName + ':' + sport
+            // const url = 'electrums://' + serverName + ':' + sport
+            // console.log('Add peer: ' + url + ' from:' + serverUrl)
+            // peers.push(url)
+          }
+          if (parseInt(port) > 0) {
+            const url = 'electrum://' + serverName + ':' + port
             console.log('Add peer: ' + url + ' from:' + serverUrl)
             peers.push(url)
           }
-
-          const url = 'electrum://' + serverName + ':' + port
-          console.log('Add peer: ' + url + ' from:' + serverUrl)
-          peers.push(url)
         }
       }
       console.log(dateString())
@@ -117,9 +121,9 @@ function getPeers (_serverUrl: string) {
     })
 
     client.on('error', function (err) {
+      const e = err.code ? err.code : ''
       console.log(dateString())
-      console.log('-------------- ERROR getPeers:' + serverUrl)
-      console.log(err)
+      console.log('getPeers:' + serverUrl + ' ERROR:' + e)
       resolved = true
       resolve({serverUrl, peers: -1})
     })
@@ -127,6 +131,8 @@ function getPeers (_serverUrl: string) {
     client.on('close', function () {
       console.log(dateString())
       console.log('CLOSE getPeers:' + serverUrl)
+      resolved = true
+      resolve({serverUrl, peers: -1})
     })
 
     setTimeout(() => {
