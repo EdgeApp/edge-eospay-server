@@ -62,7 +62,7 @@
     "lint:fix": "standard '*.js' 'src/**/*.js' 'testsrc/**/*.js' --fix",
     "lint": "standard '*.js' 'src/**/*.js' 'testsrc/**/*.js' && npm run flow",
     "test": "npm run lint && mocha",
-    "precommit": "npm run build && npm test",
+    "precommit": "npm run build && npm run lint",
     "prepare": "npm run build",
     "start": "node lib/indexInfo.js"
   }

@@ -15,6 +15,7 @@ const { checkServers } = require('./checkServers.js')
 
 const CONFIG = require('../serverConfig.json')
 const LOOP_DELAY_MS = 1000 * 60 * 60 // Delay an hour between checks
+const REQUIRED_CODES = ['BTC', 'BC1', 'DASH', 'LTC', 'BCH']
 
 // call the packages we need
 const app = express()
@@ -236,8 +237,13 @@ async function engineLoop () {
       console.log(results)
 
       for (const cc in results) {
-        if (results[cc].length < 3) {
+        if (results[cc].length < 3 && cc !== 'BAD') {
           throw new Error('Too few servers')
+        }
+      }
+      for (const codes of REQUIRED_CODES) {
+        if (results[codes] === undefined) {
+          throw new Error('Too few currency codes')
         }
       }
       await dbAuth.insert(results, 'electrumServers')
