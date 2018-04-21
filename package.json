@@ -5,7 +5,7 @@
   "main": "lib/indexInfo.js",
   "repository": {
     "type": "git",
-    "url": "git+ssh://git@github.com/Airbitz/edge-auth-server.git"
+    "url": "git+ssh://git@github.com/Airbitz/edge-info-server.git"
   },
   "keywords": [
     "Edge",
@@ -60,7 +60,7 @@
     "precommit": "npm run build",
     "flow": "flow",
     "webpack": "webpack",
-    "rollup": "rollup -c && rollup -c rollup.config.checkServers.js",
+    "rollup": "rollup -c && rollup -c rollup.config.checkServers.js && rollup -c rollup.config.getPeers.js",
     "updot": "updot",
     "start": "node lib/indexInfo.js",
     "build": "npm run rollup",
