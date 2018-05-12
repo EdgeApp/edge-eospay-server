@@ -28,20 +28,20 @@ const _bc1ServerInfo: CheckServerInfo = {
   wantElectrumX: true
 }
 
-const _btcServerInfo: CheckServerInfo = {
-  serverList: [],
-  currencyCode: 'BTC',
-  blockMerkle1k: '',
-  blockMerkle500k: '31951c69428a95a46b517ffb0de12fec1bd0b2392aec07b64573e03ded31621f',
-  blockMerkle1400k: '',
-  checkTxid: 'ef298148f25162db85127b83daefe07e46b06078f95aa30969b007a09a722b61',
-  txRawSegwit: '01000000000102f8a7d578817bb42636a2552de53db82',
-  txRawNonSegwit: '0100000002f8a7d578817bb4',
-  wantSegwit: false,
-  wantV11: false,
-  wantElectrumX: true
-}
-
+// const _btcServerInfo: CheckServerInfo = {
+//   serverList: [],
+//   currencyCode: 'BTC',
+//   blockMerkle1k: '',
+//   blockMerkle500k: '31951c69428a95a46b517ffb0de12fec1bd0b2392aec07b64573e03ded31621f',
+//   blockMerkle1400k: '',
+//   checkTxid: 'ef298148f25162db85127b83daefe07e46b06078f95aa30969b007a09a722b61',
+//   txRawSegwit: '01000000000102f8a7d578817bb42636a2552de53db82',
+//   txRawNonSegwit: '0100000002f8a7d578817bb4',
+//   wantSegwit: false,
+//   wantV11: false,
+//   wantElectrumX: true
+// }
+//
 const _ltcServerInfo: CheckServerInfo = {
   serverList: [],
   currencyCode: 'LTC',
@@ -115,7 +115,7 @@ const _badServerInfo: CheckServerInfo = {
 const serverInfos: Array<CheckServerInfo> = [
   _badServerInfo,
   _bc1ServerInfo,
-  _btcServerInfo,
+  // _btcServerInfo,
   _ltcServerInfo,
   _bchServerInfo,
   _qtumServerInfo,

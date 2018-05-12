@@ -184,6 +184,9 @@ async function checkServers (serverList:Array<string>): Promise<CheckServersResp
     }
   }
 
+  // Hack to make BC1 and BTC the same servers
+  finalServers['BTC'] = finalServers['BC1']
+
   for (const cc in finalServers) {
     if (!finalServers.hasOwnProperty(cc)) continue
     const servers = finalServers[cc]
