@@ -175,6 +175,32 @@ async function checkServers (serverList:Array<string>): Promise<CheckServersResp
     finalServers[serverInfo.currencyCode] = temp3
   }
 
+  // Hack to make BTC servers specific hard coded machines
+  finalServers['BTC'] = [
+    'electrum://e-x.not.fyi:50001',
+    'electrum://electrumx.bot.nu:50001',
+    'electrum://mooo.not.fyi:50011',
+    'electrum://helicarrier.bauerj.eu:50001',
+    'electrum://electrum.festivaldelhumor.org:50001',
+    'electrum://vps.hsmiths.com:8080',
+    'electrum://vps.hsmiths.com:50001',
+    'electrum://electrumx.hopto.org:50001',
+    'electrum://such.ninja:50001',
+    'electrum://electrum.backplanedns.org:50001',
+    'electrum://us.electrum.be:50001',
+    'electrum://electrum.be:50001'
+    // 'electrum://electrum.hsmiths.com:8080',
+    // 'electrum://electrum.vom-stausee.de:50001',
+    // 'electrum://electrum0.snel.it:50001',
+    // 'electrum://daedalus.bauerj.eu:50001',
+    // 'electrum://ndnd.selfhost.eu:50001',
+    // 'electrum://electrum3.hachre.de:50001',
+    // 'electrum://electrum2.everynothing.net:50001',
+    // 'electrum://kirsche.emzy.de:50001',
+    // 'electrum://VPS.hsmiths.com:50001',
+    // 'electrum://electrumx-core.1209k.com:50001'
+  ]
+
   for (const cc in finalServers) {
     if (!finalServers.hasOwnProperty(cc)) continue
     const servers = finalServers[cc]
@@ -183,9 +209,6 @@ async function checkServers (serverList:Array<string>): Promise<CheckServersResp
       console.log(s)
     }
   }
-
-  // Hack to make BC1 and BTC the same servers
-  finalServers['BTC'] = finalServers['BC1']
 
   for (const cc in finalServers) {
     if (!finalServers.hasOwnProperty(cc)) continue
