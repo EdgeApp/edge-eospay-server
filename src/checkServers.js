@@ -177,18 +177,23 @@ async function checkServers (serverList:Array<string>): Promise<CheckServersResp
 
   // Hack to make BTC servers specific hard coded machines
   finalServers['BTC'] = [
-    'electrum://e-x.not.fyi:50001',
-    'electrum://electrumx.bot.nu:50001',
-    'electrum://mooo.not.fyi:50011',
-    'electrum://helicarrier.bauerj.eu:50001',
-    'electrum://electrum.festivaldelhumor.org:50001',
-    'electrum://vps.hsmiths.com:8080',
-    'electrum://vps.hsmiths.com:50001',
-    'electrum://electrumx.hopto.org:50001',
-    'electrum://such.ninja:50001',
-    'electrum://electrum.backplanedns.org:50001',
-    'electrum://us.electrum.be:50001',
-    'electrum://electrum.be:50001'
+    'electrum://electrum-bu-az-wusa2.airbitz.co:50001',
+    'electrum://electrum-bu-az-wjapan.airbitz.co:50001',
+    'electrum://electrum-bu-az-ausw.airbitz.co:50001',
+    'electrum://electrum-bu-az-weuro.airbitz.co:50001'
+
+    // 'electrum://e-x.not.fyi:50001',
+    // 'electrum://electrumx.bot.nu:50001',
+    // 'electrum://mooo.not.fyi:50011',
+    // 'electrum://helicarrier.bauerj.eu:50001',
+    // 'electrum://electrum.festivaldelhumor.org:50001',
+    // 'electrum://vps.hsmiths.com:8080',
+    // 'electrum://vps.hsmiths.com:50001',
+    // 'electrum://electrumx.hopto.org:50001',
+    // 'electrum://such.ninja:50001',
+    // 'electrum://electrum.backplanedns.org:50001',
+    // 'electrum://us.electrum.be:50001',
+    // 'electrum://electrum.be:50001'
     // 'electrum://electrum.hsmiths.com:8080',
     // 'electrum://electrum.vom-stausee.de:50001',
     // 'electrum://electrum0.snel.it:50001',
