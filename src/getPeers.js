@@ -62,7 +62,7 @@ function getPeers (_serverUrl: string) {
         return
       }
 
-      if (resultObj !== null) {
+      if (resultObj !== null && resultObj.result) {
         let rArray = resultObj.result
         for (let serverObj of rArray) {
           let serverName = serverObj[1]
