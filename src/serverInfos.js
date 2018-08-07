@@ -98,6 +98,62 @@ const _qtumServerInfo: CheckServerInfo = {
   wantElectrumX: true
 }
 
+// const _dogeServerInfo: CheckServerInfo = {
+//   serverList: [],
+//   currencyCode: 'QTUM',
+//   blockMerkle1k: '8b49b57525515b55964dd4e65330c9484a9e5d6740ab0a6d184ca95a51733879',
+//   blockMerkle500k: '',
+//   blockMerkle1400k: '',
+//   checkTxid: '7fc7899d61270259d3d586d170ed375a0fa4d3bdaa9d3301bde6e38e5f24e64a',
+//   txRawSegwit: '020000000119a2aa0d6fc5b60c52df00ed86ca82c218f045ff9ff003dd821e191fbe50e9ec010000006a47304402201226caa3ab6376237803dce1bdb2c174a385cce097fdd2d0d45969b7e7f002a5022007affb86f70ffd9a33981454e2583241f364664ebfdb93a6c91feb59f2667e220121021cac6fcf6',
+//   txRawNonSegwit: null,
+//   wantSegwit: true,
+//   wantV11: true,
+//   wantElectrumX: true
+// }
+//
+// const _btgServerInfo: CheckServerInfo = {
+//   serverList: [],
+//   currencyCode: 'BTG',
+//   blockMerkle1k: '8b49b57525515b55964dd4e65330c9484a9e5d6740ab0a6d184ca95a51733879',
+//   blockMerkle500k: '',
+//   blockMerkle1400k: '',
+//   checkTxid: '7fc7899d61270259d3d586d170ed375a0fa4d3bdaa9d3301bde6e38e5f24e64a',
+//   txRawSegwit: '020000000119a2aa0d6fc5b60c52df00ed86ca82c218f045ff9ff003dd821e191fbe50e9ec010000006a47304402201226caa3ab6376237803dce1bdb2c174a385cce097fdd2d0d45969b7e7f002a5022007affb86f70ffd9a33981454e2583241f364664ebfdb93a6c91feb59f2667e220121021cac6fcf6',
+//   txRawNonSegwit: null,
+//   wantSegwit: true,
+//   wantV11: true,
+//   wantElectrumX: true
+// }
+//
+// const _vtcServerInfo: CheckServerInfo = {
+//   serverList: [],
+//   currencyCode: 'VTC',
+//   blockMerkle1k: '8b49b57525515b55964dd4e65330c9484a9e5d6740ab0a6d184ca95a51733879',
+//   blockMerkle500k: '',
+//   blockMerkle1400k: '',
+//   checkTxid: '7fc7899d61270259d3d586d170ed375a0fa4d3bdaa9d3301bde6e38e5f24e64a',
+//   txRawSegwit: '020000000119a2aa0d6fc5b60c52df00ed86ca82c218f045ff9ff003dd821e191fbe50e9ec010000006a47304402201226caa3ab6376237803dce1bdb2c174a385cce097fdd2d0d45969b7e7f002a5022007affb86f70ffd9a33981454e2583241f364664ebfdb93a6c91feb59f2667e220121021cac6fcf6',
+//   txRawNonSegwit: null,
+//   wantSegwit: true,
+//   wantV11: true,
+//   wantElectrumX: true
+// }
+//
+// const _dgbServerInfo: CheckServerInfo = {
+//   serverList: [],
+//   currencyCode: 'DGB',
+//   blockMerkle1k: '8b49b57525515b55964dd4e65330c9484a9e5d6740ab0a6d184ca95a51733879',
+//   blockMerkle500k: '',
+//   blockMerkle1400k: '',
+//   checkTxid: '7fc7899d61270259d3d586d170ed375a0fa4d3bdaa9d3301bde6e38e5f24e64a',
+//   txRawSegwit: '020000000119a2aa0d6fc5b60c52df00ed86ca82c218f045ff9ff003dd821e191fbe50e9ec010000006a47304402201226caa3ab6376237803dce1bdb2c174a385cce097fdd2d0d45969b7e7f002a5022007affb86f70ffd9a33981454e2583241f364664ebfdb93a6c91feb59f2667e220121021cac6fcf6',
+//   txRawNonSegwit: null,
+//   wantSegwit: true,
+//   wantV11: true,
+//   wantElectrumX: true
+// }
+
 const _badServerInfo: CheckServerInfo = {
   serverList: [],
   currencyCode: 'BAD',
@@ -112,14 +168,99 @@ const _badServerInfo: CheckServerInfo = {
   wantElectrumX: false
 }
 
-const serverInfos: Array<CheckServerInfo> = [
-  _badServerInfo,
-  _bc1ServerInfo,
-  // _btcServerInfo,
-  _ltcServerInfo,
-  _bchServerInfo,
-  _qtumServerInfo,
-  _dashServerInfo
+const serverInfos: { [currencyCode: string]: CheckServerInfo } = {
+  'BAD': _badServerInfo,
+  'BC1': _bc1ServerInfo,
+  'LTC': _ltcServerInfo,
+  'BCH': _bchServerInfo,
+  'QTUM': _qtumServerInfo,
+  'DASH': _dashServerInfo
+  // 'BTG': _btgServerInfo,
+  // 'DOGE': _dogeServerInfo,
+  // 'VTC': _vtcServerInfo,
+  // 'DGB': _dgbServerInfo
+}
+
+const seedServers = [
+  'electrum://electrum.jdubya.info:50001',
+  'electrum://electrum-bc-az-eusa.airbitz.co:50001',
+  'electrum://electrum-bu-az-wusa2.airbitz.co:50001',
+  'electrum://electrum-bu-az-wjapan.airbitz.co:50001',
+  'electrum://electrum-bu-az-ausw.airbitz.co:50001',
+  'electrum://electrum-bu-az-weuro.airbitz.co:50001',
+  'electrum://electrum.hsmiths.com:8080',
+  'electrum://e.anonyhost.org:50001',
+  'electrum://ELECTRUM.not.fyi:50001',
+  'electrum://electrum.zone:50001',
+  'electrum://yui.kurophoto.com:50001',
+  'electrum://abc1.hsmiths.com:60001',
+  'electrum://electrum-ltc.festivaldelhumor.org:60001',
+  'electrum://electrum-ltc.petrkr.net:60001',
+  'electrum://electrum.dash.siampm.com:50001',
+  'electrum://e-1.claudioboxx.com:50005',
+  'electrum://electrum.leblancnet.us:50015',
+  'electrum://s1.qtum.info:50001',
+  'electrum://s2.qtum.info:50001',
+  'electrum://s3.qtum.info:50001',
+  'electrum://s4.qtum.info:50001',
+  'electrum://s5.qtum.info:50001',
+  'electrum://s6.qtum.info:50001',
+  'electrum://s7.qtum.info:50001',
+  'electrum://s8.qtum.info:50001',
+  'electrum://s9.qtum.info:50001',
+  'electrum://electrum-ltc.festivaldelhumor.org:60001',
+  'electrum://electrum-ltc.petrkr.net:60001',
+  'electrum://electrumx.nmdps.net:9433',
+  'electrums://electrum-ltc.festivaldelhumor.org:60002',
+  'electrums://electrum-ltc.petrkr.net:60002',
+  'electrums://electrum-ltc.villocq.com:60002',
+  'electrum://electrum-ltc.villocq.com:60001',
+  'electrums://elec.luggs.co:444',
+  'electrums://ltc01.knas.systems:50004',
+  'electrum://ltc01.knas.systems:50003',
+  'electrums://electrum-ltc.wilv.in:50002',
+  'electrum://electrum-ltc.wilv.in:50001',
+  'electrums://electrum.ltc.xurious.com:50002',
+  'electrum://electrum.ltc.xurious.com:50001',
+  'electrums://lith.strangled.net:50003',
+  'electrums://electrum.leblancnet.us:50004',
+  'electrum://electrum.leblancnet.us:50003',
+  'electrums://electrum-ltc0.snel.it:50004',
+  'electrum://electrum-ltc0.snel.it:50003',
+  'electrums://e-2.claudioboxx.com:50004',
+  'electrum://e-2.claudioboxx.com:50003',
+  'electrums://e-1.claudioboxx.com:50004',
+  'electrum://e-1.claudioboxx.com:50003',
+  'electrum://node.ispol.sk:50003',
+  'electrums://electrum-ltc.bysh.me:50002',
+  'electrum://electrum-ltc.bysh.me:50001',
+  'electrums://e-3.claudioboxx.com:50004',
+  'electrum://e-3.claudioboxx.com:50003',
+  'electrums://node.ispol.sk:50004',
+  'electrums://electrumx.nmdps.net:9434',
+  'electrum://electrum-alts-wusa2-az.edge.app:50021',
+  'electrum://electrum-alts-weuro-az.edge.app:50021',
+  'electrum://electrum-alts-ejapan-az.edge.app:50021',
+  'electrum://electrum-alts-wusa2-az.edge.app:50011',
+  'electrum://electrum-alts-weuro-az.edge.app:50011',
+  'electrum://electrum-alts-ejapan-az.edge.app:50011',
+  'electrum://electrum-alts-wusa2-az.edge.app:50001',
+  'electrum://electrum-alts-weuro-az.edge.app:50001',
+  'electrum://electrum-alts-ejapan-az.edge.app:50001',
+  'electrum://51.15.82.184:50001',
+  'electrum://45.63.92.224:50001',
+  'electrum://47.75.76.176:50001',
+  'electrums://51.15.82.184:50002',
+  'electrums://45.63.92.224:50002',
+  'electrums://47.75.76.176:50002',
+  'electrum://electrumx-eu.bitcoingold.org:50001',
+  'electrums://electrumx-eu.bitcoingold.org:50002',
+  'electrum://electrumx-us.bitcoingold.org:50001',
+  'electrums://electrumx-us.bitcoingold.org:50002',
+  'electrum://electrumx-eu.btcgpu.org:50001',
+  'electrums://electrumx-eu.btcgpu.org:50002',
+  'electrum://electrumx-us.btcgpu.org:50001',
+  'electrums://electrumx-us.btcgpu.org:50002'
 ]
 
-module.exports = { serverInfos }
+module.exports = { serverInfos, seedServers }

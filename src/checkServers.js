@@ -4,7 +4,7 @@ import type { CheckServerInfo } from './serverInfos.js'
 const net = require('net')
 const tls = require('tls')
 const { getPeers } = require('./getPeers.js')
-const { serverInfos } = require('./serverInfos.js')
+const { serverInfos, seedServers } = require('./serverInfos.js')
 const _serverInfos = serverInfos
 
 // const SEED_SERVERS_SSL = [
@@ -26,34 +26,34 @@ const _serverInfos = serverInfos
 //   'electrums://s9.qtum.info:50002'
 // ]
 
-const SEED_SERVERS = [
-  'electrum://electrum.jdubya.info:50001',
-  'electrum://electrum-bc-az-eusa.airbitz.co:50001',
-  'electrum://electrum-bu-az-wusa2.airbitz.co:50001',
-  'electrum://electrum-bu-az-wjapan.airbitz.co:50001',
-  'electrum://electrum-bu-az-ausw.airbitz.co:50001',
-  'electrum://electrum-bu-az-weuro.airbitz.co:50001',
-  'electrum://electrum.hsmiths.com:8080',
-  'electrum://e.anonyhost.org:50001',
-  'electrum://ELECTRUM.not.fyi:50001',
-  'electrum://electrum.zone:50001',
-  'electrum://yui.kurophoto.com:50001',
-  'electrum://abc1.hsmiths.com:60001',
-  'electrum://electrum-ltc.festivaldelhumor.org:60001',
-  'electrum://electrum-ltc.petrkr.net:60001',
-  'electrum://electrum.dash.siampm.com:50001',
-  'electrum://e-1.claudioboxx.com:50005',
-  'electrum://electrum.leblancnet.us:50015',
-  'electrum://s1.qtum.info:50001',
-  'electrum://s2.qtum.info:50001',
-  'electrum://s3.qtum.info:50001',
-  'electrum://s4.qtum.info:50001',
-  'electrum://s5.qtum.info:50001',
-  'electrum://s6.qtum.info:50001',
-  'electrum://s7.qtum.info:50001',
-  'electrum://s8.qtum.info:50001',
-  'electrum://s9.qtum.info:50001'
-]
+const SEED_SERVERS = seedServers
+//   'electrum://electrum.jdubya.info:50001',
+//   'electrum://electrum-bc-az-eusa.airbitz.co:50001',
+//   'electrum://electrum-bu-az-wusa2.airbitz.co:50001',
+//   'electrum://electrum-bu-az-wjapan.airbitz.co:50001',
+//   'electrum://electrum-bu-az-ausw.airbitz.co:50001',
+//   'electrum://electrum-bu-az-weuro.airbitz.co:50001',
+//   'electrum://electrum.hsmiths.com:8080',
+//   'electrum://e.anonyhost.org:50001',
+//   'electrum://ELECTRUM.not.fyi:50001',
+//   'electrum://electrum.zone:50001',
+//   'electrum://yui.kurophoto.com:50001',
+//   'electrum://abc1.hsmiths.com:60001',
+//   'electrum://electrum-ltc.festivaldelhumor.org:60001',
+//   'electrum://electrum-ltc.petrkr.net:60001',
+//   'electrum://electrum.dash.siampm.com:50001',
+//   'electrum://e-1.claudioboxx.com:50005',
+//   'electrum://electrum.leblancnet.us:50015',
+//   'electrum://s1.qtum.info:50001',
+//   'electrum://s2.qtum.info:50001',
+//   'electrum://s3.qtum.info:50001',
+//   'electrum://s4.qtum.info:50001',
+//   'electrum://s5.qtum.info:50001',
+//   'electrum://s6.qtum.info:50001',
+//   'electrum://s7.qtum.info:50001',
+//   'electrum://s8.qtum.info:50001',
+//   'electrum://s9.qtum.info:50001'
+// ]
 // const SEED_SERVERS = [
 //   'electrum://electrum-bc-az-eusa.airbitz.co:50001',
 //   'electrum://electrum-bu-az-weuro.airbitz.co:50001',
@@ -90,7 +90,7 @@ async function checkServers (serverList:Array<string>): Promise<CheckServersResp
   for (const result of getPeersResults) {
     // Each result is an array of peers or -1 if that server failed
     if (result.peers === -1) {
-      _serverInfos[0].serverList.push({serverUrl: result.serverUrl, blockHeight: 0})
+      _serverInfos.BAD.serverList.push({serverUrl: result.serverUrl, blockHeight: 0})
     } else {
       startServers = startServers.concat(result.peers)
     }
@@ -127,48 +127,50 @@ async function checkServers (serverList:Array<string>): Promise<CheckServersResp
     const serverUrl = result.serverUrl
     const blockHeight = result.blockHeight
 
-    let matchIdx = -1
-    let coreIdx = -1
-    for (let idx = 0; idx < _serverInfos.length; idx++) {
+    let matchCc = ''
+    let coreCC = ''
+    for (const cc in _serverInfos) {
+    // for (let idx = 0; idx < _serverInfos.length; idx++) {
       // Hack to match Core server type
-      if (_serverInfos[idx].currencyCode === 'BC1') {
-        coreIdx = idx
+      if (_serverInfos[cc].currencyCode === 'BC1') {
+        coreCC = cc
       }
-      if (result.currencyCode === _serverInfos[idx].currencyCode) {
-        matchIdx = idx
+      if (result.currencyCode === _serverInfos[cc].currencyCode) {
+        matchCc = cc
       }
     }
 
     // Hack to match Core segwit server type
     if (result.currencyCode === 'BTC' &&
-      _serverInfos[coreIdx].wantSegwit === result.hasSegwit &&
-      _serverInfos[coreIdx].wantElectrumX === result.electrumx &&
-      _serverInfos[coreIdx].wantV11 === result.v11
+      _serverInfos[coreCC].wantSegwit === result.hasSegwit &&
+      _serverInfos[coreCC].wantElectrumX === result.electrumx &&
+      _serverInfos[coreCC].wantV11 === result.v11
     ) {
-      _serverInfos[coreIdx].serverList.push({serverUrl, blockHeight})
+      _serverInfos[coreCC].serverList.push({serverUrl, blockHeight})
     }
 
-    if (matchIdx < 0) {
+    if (matchCc === '') {
       continue
     }
 
-    if (_serverInfos[matchIdx].wantSegwit !== result.hasSegwit) {
+    if (_serverInfos[matchCc].wantSegwit !== result.hasSegwit) {
       continue
     }
 
-    if (_serverInfos[matchIdx].wantElectrumX && !result.electrumx) {
+    if (_serverInfos[matchCc].wantElectrumX && !result.electrumx) {
       continue
     }
 
-    if (_serverInfos[matchIdx].wantV11 && !result.v11) {
+    if (_serverInfos[matchCc].wantV11 && !result.v11) {
       continue
     }
 
-    _serverInfos[matchIdx].serverList.push({serverUrl, blockHeight})
+    _serverInfos[matchCc].serverList.push({serverUrl, blockHeight})
   }
 
   const finalServers: CheckServersResponse = {}
-  for (const serverInfo of _serverInfos) {
+  for (const cc in _serverInfos) {
+    const serverInfo = _serverInfos[cc]
     const temp1 = pruneLowBlockHeight(serverInfo.serverList)
     const temp2 = new Set(temp1)
     const temp3 = [...temp2]
@@ -337,7 +339,8 @@ function checkHeader1k (serverResults: ServerResults): QueryCommand {
         typeof resultObj.result !== 'undefined' &&
         typeof resultObj.result.merkle_root !== 'undefined'
       ) {
-        for (const serverInfo of _serverInfos) {
+        for (const cc in _serverInfos) {
+          const serverInfo = _serverInfos[cc]
           if (resultObj.result.merkle_root === serverInfo.blockMerkle1k) {
             serverResults.checks.checkHeader = true
             serverResults.currencyCode = serverInfo.currencyCode
@@ -358,7 +361,8 @@ function checkHeader500k (serverResults: ServerResults): QueryCommand {
         typeof resultObj.result !== 'undefined' &&
         typeof resultObj.result.merkle_root !== 'undefined'
       ) {
-        for (const serverInfo of _serverInfos) {
+        for (const cc in _serverInfos) {
+          const serverInfo = _serverInfos[cc]
           if (resultObj.result.merkle_root === serverInfo.blockMerkle500k) {
             serverResults.checks.checkHeader = true
             serverResults.currencyCode = serverInfo.currencyCode
@@ -379,7 +383,8 @@ function checkHeader1400k (serverResults: ServerResults): QueryCommand {
         typeof resultObj.result !== 'undefined' &&
         typeof resultObj.result.merkle_root !== 'undefined'
       ) {
-        for (const serverInfo of _serverInfos) {
+        for (const cc in _serverInfos) {
+          const serverInfo = _serverInfos[cc]
           if (resultObj.result.merkle_root === serverInfo.blockMerkle1400k) {
             serverResults.checks.checkHeader = true
             serverResults.currencyCode = serverInfo.currencyCode
@@ -525,7 +530,8 @@ function checkServer (serverUrl: string): Promise<ServerResults | null> {
         ) {
           // See which serverInfo currencyCode matches this server
           let serverInfo: CheckServerInfo | null = null
-          for (const s of _serverInfos) {
+          for (const cc in _serverInfos) {
+            const s = _serverInfos[cc]
             if (s.currencyCode === serverResults.currencyCode) {
               serverInfo = s
             }
