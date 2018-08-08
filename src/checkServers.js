@@ -123,6 +123,7 @@ async function checkServers (
   const finalServers: CheckServersResponse = {}
   for (const cc in _serverInfos) {
     const serverInfo = _serverInfos[cc]
+    console.log(`Pruning low blockheights for ${cc}`)
     const temp1 = pruneLowBlockHeight(serverInfo.serverList)
     const temp2 = new Set(temp1)
     const temp3 = [...temp2]
@@ -194,9 +195,12 @@ function pruneLowBlockHeight (servers: Array<{serverUrl: string, blockHeight: nu
   let heightWithHighestScore: number = 0
   for (const s in heights) {
     if (!heights.hasOwnProperty(s)) continue
-    if (heights[s] > highestScore) {
+    if (heights[s] >= highestScore) {
       highestScore = heights[s]
-      heightWithHighestScore = parseInt(s)
+      const newHeight = parseInt(s)
+      if (newHeight > heightWithHighestScore) {
+        heightWithHighestScore = newHeight
+      }
     }
   }
   console.log('highestScore:' + highestScore)
