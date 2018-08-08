@@ -4,70 +4,22 @@ import type { CheckServerInfo } from './serverInfos.js'
 const net = require('net')
 const tls = require('tls')
 const { getPeers } = require('./getPeers.js')
-const { serverInfos, seedServers } = require('./serverInfos.js')
-const _serverInfos = serverInfos
+// const { serverInfos, seedServers } = require('./serverInfos.js')
+// const _serverInfos = serverInfos
 
-// const SEED_SERVERS_SSL = [
-//   'electrums://electrum-bc-az-eusa.airbitz.co:50002',
-//   'electrums://electrum-bu-az-wusa2.airbitz.co:50002',
-//   'electrums://electrum-bu-az-ausw.airbitz.co:50002',
-//   'electrums://electrum-bu-az-wjapan.airbitz.co:50002',
-//   'electrums://electrum-bu-az-weuro.airbitz.co:50002',
-//   'electrums://yui.kurophoto.com:50002',
-//   'electrums://electrum.zone:50002',
-//   'electrums://s1.qtum.info:50002',
-//   'electrums://s2.qtum.info:50002',
-//   'electrums://s3.qtum.info:50002',
-//   'electrums://s4.qtum.info:50002',
-//   'electrums://s5.qtum.info:50002',
-//   'electrums://s6.qtum.info:50002',
-//   'electrums://s7.qtum.info:50002',
-//   'electrums://s8.qtum.info:50002',
-//   'electrums://s9.qtum.info:50002'
-// ]
+// const SEED_SERVERS = seedServers
 
-const SEED_SERVERS = seedServers
-//   'electrum://electrum.jdubya.info:50001',
-//   'electrum://electrum-bc-az-eusa.airbitz.co:50001',
-//   'electrum://electrum-bu-az-wusa2.airbitz.co:50001',
-//   'electrum://electrum-bu-az-wjapan.airbitz.co:50001',
-//   'electrum://electrum-bu-az-ausw.airbitz.co:50001',
-//   'electrum://electrum-bu-az-weuro.airbitz.co:50001',
-//   'electrum://electrum.hsmiths.com:8080',
-//   'electrum://e.anonyhost.org:50001',
-//   'electrum://ELECTRUM.not.fyi:50001',
-//   'electrum://electrum.zone:50001',
-//   'electrum://yui.kurophoto.com:50001',
-//   'electrum://abc1.hsmiths.com:60001',
-//   'electrum://electrum-ltc.festivaldelhumor.org:60001',
-//   'electrum://electrum-ltc.petrkr.net:60001',
-//   'electrum://electrum.dash.siampm.com:50001',
-//   'electrum://e-1.claudioboxx.com:50005',
-//   'electrum://electrum.leblancnet.us:50015',
-//   'electrum://s1.qtum.info:50001',
-//   'electrum://s2.qtum.info:50001',
-//   'electrum://s3.qtum.info:50001',
-//   'electrum://s4.qtum.info:50001',
-//   'electrum://s5.qtum.info:50001',
-//   'electrum://s6.qtum.info:50001',
-//   'electrum://s7.qtum.info:50001',
-//   'electrum://s8.qtum.info:50001',
-//   'electrum://s9.qtum.info:50001'
-// ]
-// const SEED_SERVERS = [
-//   'electrum://electrum-bc-az-eusa.airbitz.co:50001',
-//   'electrum://electrum-bu-az-weuro.airbitz.co:50001',
-//   'electrum://abc1.hsmiths.com:60001',
-//   'electrum://electrum-ltc.festivaldelhumor.org:60001',
-//   'electrum://electrum.dash.siampm.com:50001'
-// ]
+let _serverInfos: { [currencyCode: string]: CheckServerInfo } = {}
 
 type CheckServersResponse = {
   [currencyCode: string]: Array<string>
 }
 
-async function checkServers (serverList:Array<string>): Promise<CheckServersResponse> {
-  let servers = SEED_SERVERS.concat(serverList)
+async function checkServers (
+  serverList:Array<string>,
+  serverInfos: { [currencyCode: string]: CheckServerInfo }): Promise<CheckServersResponse> {
+  _serverInfos = serverInfos
+  let servers = serverList
   let startServers = servers.slice()
   let promiseArray = []
 

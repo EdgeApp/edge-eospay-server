@@ -209,22 +209,35 @@ mylog('Express server listening on port:' + CONFIG.httpPort + ' ssl:' + CONFIG.h
 // Startup background tasks
 async function engineLoop () {
   while (1) {
-    let electrumServers = {
-      BTC: [],
-      BC1: [],
-      BC2: [],
-      LTC: [],
-      BCH: [],
-      DASH: [],
-      QTUM: [],
-      BAD: []
-    }
+    let seedServers = []
+    let electrumServerInfos = {}
+    let electrumServers = {}
+    let _id
+    let _rev
     try {
-      const results = await dbAuth.get('electrumServers')
+      let results = await dbAuth.get('electrumServers')
       if (typeof results.BTC === 'undefined') {
         throw new Error('Missing BTC servers')
       }
+      _id = results._id
+      _rev = results._rev
+      delete results._id
+      delete results._rev
       electrumServers = results
+
+      results = await dbAuth.get('electrumServerInfos')
+      if (typeof results.BC1 === 'undefined') {
+        throw new Error('Missing BTC serverInfo')
+      }
+      delete results._id
+      delete results._rev
+      electrumServerInfos = results
+
+      results = await dbAuth.get('seedServers')
+      if (typeof results.servers === 'undefined') {
+        throw new Error('Missing seedServers')
+      }
+      seedServers = results.servers
     } catch (e) {
       console.log(dateString())
       console.log(e)
@@ -233,21 +246,16 @@ async function engineLoop () {
     try {
       mylog('***********************************')
       mylog(dateString() + ': Calling checkServers')
-      const seedServers =
-        electrumServers.BTC
-          .concat(electrumServers.BC1)
-          .concat(electrumServers.BC2)
-          .concat(electrumServers.BCH)
-          .concat(electrumServers.LTC)
-          .concat(electrumServers.DASH)
-          .concat(electrumServers.QTUM)
-      const results = await checkServers(seedServers)
+      for (const s in electrumServers) {
+        seedServers = seedServers.concat(electrumServers[s])
+      }
+      const results = await checkServers(seedServers, electrumServerInfos)
       console.log(dateString())
       console.log(results)
 
       for (const cc in results) {
         if (results[cc].length < 2 && cc !== 'BAD') {
-          throw new Error('Too few servers')
+          console.log('Too few servers for ' + cc)
         }
       }
       for (const codes of REQUIRED_CODES) {
@@ -256,6 +264,8 @@ async function engineLoop () {
         }
       }
       electrumServers = Object.assign(electrumServers, results)
+      electrumServers._id = _id
+      electrumServers._rev = _rev
       await dbAuth.insert(electrumServers, 'electrumServers')
     } catch (e) {
       console.log(dateString())
