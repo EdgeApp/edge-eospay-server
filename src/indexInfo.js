@@ -255,9 +255,11 @@ async function engineLoop () {
 
       for (const cc in results) {
         if (results[cc].length < 2 && cc !== 'BAD') {
-          console.log('Too few servers for ' + cc)
+          console.log(`Too few servers for ${cc}. Using old list`)
+          results[cc] = electrumServers[cc]
         }
       }
+
       for (const codes of REQUIRED_CODES) {
         if (results[codes] === undefined) {
           throw new Error('Too few currency codes')
