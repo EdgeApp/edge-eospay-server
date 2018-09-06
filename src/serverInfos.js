@@ -253,6 +253,7 @@ const seedServers = [
   'electrums://51.15.82.184:50002',
   'electrums://45.63.92.224:50002',
   'electrums://47.75.76.176:50002',
+  'electrum://electrum-bu-wusa2.edge.app:50001',
   'electrum://electrumx-eu.bitcoingold.org:50001',
   'electrums://electrumx-eu.bitcoingold.org:50002',
   'electrum://electrumx-us.bitcoingold.org:50001',

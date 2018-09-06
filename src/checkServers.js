@@ -132,6 +132,7 @@ async function checkServers (
 
   // Hack to make BTC servers specific hard coded machines
   finalServers['BTC'] = [
+    'electrum://electrum-bu-wusa2.edge.app:50001',
     'electrum://electrum-bu-az-wusa2.airbitz.co:50001',
     'electrum://electrum-bu-az-wjapan.airbitz.co:50001',
     'electrum://electrum-bu-az-ausw.airbitz.co:50001',
