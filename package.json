@@ -5,7 +5,7 @@
   "main": "lib/indexInfo.js",
   "repository": {
     "type": "git",
-    "url": "git+ssh://git@github.com/Airbitz/edge-info-server.git"
+    "url": "git+ssh://git@github.com/EdgeApp/edge-info-server.git"
   },
   "keywords": [
     "Edge",
@@ -15,12 +15,12 @@
     "Ethereum",
     "Blockchain"
   ],
-  "author": "Paul Puey <paul@airbitz.co>",
+  "author": "Paul Puey <paul@edge.app>",
   "license": "MIT",
   "bugs": {
-    "url": "https://github.com/Airbitz/edge-auth-server/issues"
+    "url": "https://github.com/EdgeApp/edge-info-server/issues"
   },
-  "homepage": "https://github.com/Airbitz/edge-auth-server#readme",
+  "homepage": "https://github.com/EdgeApp/edge-info-server#readme",
   "dependencies": {
     "biggystring": "^1.0.3",
     "body-parser": "~1.0.1",
