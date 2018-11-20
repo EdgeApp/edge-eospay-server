@@ -1,13 +1,18 @@
 // @flow
 
-import type { CheckServerInfo } from './serverInfos.js'
 const net = require('net')
 const tls = require('tls')
 const { getPeers } = require('./getPeers.js')
-// const { serverInfos, seedServers } = require('./serverInfos.js')
-// const _serverInfos = serverInfos
 
-// const SEED_SERVERS = seedServers
+type CheckServerInfo = {
+  serverList: Array<{serverUrl: string, blockHeight: number, serverVersion: number}>,
+  currencyCode: string,
+  blockMerkle1k: string,
+  checkTxid: string,
+  txRaw: string,
+  wantV11: boolean,
+  wantElectrumX: boolean
+}
 
 let _serverInfos: { [currencyCode: string]: CheckServerInfo } = {}
 
@@ -23,12 +28,13 @@ async function checkServers (
   let startServers = servers.slice()
   let promiseArray = []
 
+  // const SEED_SERVERS = serverList.slice()
   //
   // Loop over all servers
   //
   let getPeersResults:Array<any> = []
   for (let server of servers) {
-    console.log('Getting peers from server:' + server)
+    // console.log('Getting peers from server:' + server)
     const p = getPeers(server)
     promiseArray.push(p)
     if (promiseArray.length >= 200) {
@@ -42,15 +48,14 @@ async function checkServers (
   for (const result of getPeersResults) {
     // Each result is an array of peers or -1 if that server failed
     if (result.peers === -1) {
-      _serverInfos.BAD.serverList.push({serverUrl: result.serverUrl, blockHeight: 0})
+      _serverInfos.BAD.serverList.push({serverUrl: result.serverUrl, blockHeight: 0, serverVersion: 0})
     } else {
       startServers = startServers.concat(result.peers)
     }
   }
 
   let uniqueServers = Array.from(new Set(startServers))
-  // let uniqueServers = SEED_SERVERS
-  console.log('Found ' + uniqueServers.length + ' unique peers to check')
+  // console.log('Found ' + uniqueServers.length + ' unique peers to check')
 
   promiseArray = []
   // uniqueServers = ['electrum://electrum-bu-az-wjapan.airbitz.co:50001', 'electrum://electrum-bu-az-weuro.airbitz.co:50001']
@@ -65,7 +70,7 @@ async function checkServers (
     promiseArray.push(p)
     if (promiseArray.length >= 50) {
       results = results.concat(await Promise.all(promiseArray))
-      console.log('Writing results up to: ' + results.length)
+      // console.log('Writing results up to: ' + results.length)
       promiseArray = []
     }
   }
@@ -79,48 +84,27 @@ async function checkServers (
     const serverUrl = result.serverUrl
     const blockHeight = result.blockHeight
 
-    let matchCc = ''
-    let coreCC = ''
-    for (const cc in _serverInfos) {
-    // for (let idx = 0; idx < _serverInfos.length; idx++) {
-      // Hack to match Core server type
-      if (_serverInfos[cc].currencyCode === 'BC1') {
-        coreCC = cc
-      }
-      if (result.currencyCode === _serverInfos[cc].currencyCode) {
-        matchCc = cc
-      }
-    }
-
-    // Hack to match Core segwit server type
-    if (result.currencyCode === 'BTC' &&
-      _serverInfos[coreCC].wantSegwit === result.hasSegwit &&
-      _serverInfos[coreCC].wantElectrumX === result.electrumx &&
-      _serverInfos[coreCC].wantV11 === result.v11
-    ) {
-      _serverInfos[coreCC].serverList.push({serverUrl, blockHeight})
-    }
-
-    if (matchCc === '') {
-      continue
-    }
-
-    if (_serverInfos[matchCc].wantSegwit !== result.hasSegwit) {
+    const matchCc = result.currencyCode
+    if (!matchCc) {
+      console.log(`${result.serverUrl} failed to match any currencyCode`)
       continue
     }
 
     if (_serverInfos[matchCc].wantElectrumX && !result.electrumx) {
+      console.log(`${result.serverUrl} failed wantElectrumX`)
       continue
     }
 
     if (_serverInfos[matchCc].wantV11 && !result.v11) {
+      console.log(`${result.serverUrl} failed wantV11`)
       continue
     }
 
-    _serverInfos[matchCc].serverList.push({serverUrl, blockHeight})
+    console.log(`${result.serverUrl} success match ${matchCc}`)
+    _serverInfos[matchCc].serverList.push({serverUrl, blockHeight, serverVersion: result.serverVersion})
   }
 
-  const finalServers: CheckServersResponse = {}
+  const finalServers = {}
   for (const cc in _serverInfos) {
     const serverInfo = _serverInfos[cc]
     console.log(`Pruning low blockheights for ${cc}`)
@@ -135,22 +119,27 @@ async function checkServers (
     const servers = finalServers[cc]
     console.log(`\n ${servers.length} ${cc} SERVERS:\n`)
     for (let s of servers) {
-      console.log(s)
+      console.log(`${s.serverVersion.toString()} ${s.serverUrl}`)
     }
   }
 
+  const out = {}
   for (const cc in finalServers) {
+    out[cc] = []
     if (!finalServers.hasOwnProperty(cc)) continue
-    const servers = finalServers[cc]
+    for (const s of finalServers[cc]) {
+      out[cc].push(s.serverUrl)
+    }
     console.log(`num ${cc}      : ${servers.length}`)
   }
 
-  return finalServers
+  return out
 }
 
 // Remove the servers which have lower blockHeights than the majority of other servers
-function pruneLowBlockHeight (servers: Array<{serverUrl: string, blockHeight: number}>) {
+function pruneLowBlockHeight (servers: Array<{serverUrl: string, blockHeight: number, serverVersion: number}>) {
   const heights = {}
+  if (!servers || !servers.length) return []
   for (const s of servers) {
     if (typeof heights[s.blockHeight] === 'undefined') {
       heights[s.blockHeight] = 1
@@ -181,7 +170,7 @@ function pruneLowBlockHeight (servers: Array<{serverUrl: string, blockHeight: nu
       s.blockHeight >= heightWithHighestScore - 1 &&
       s.blockHeight <= heightWithHighestScore + 1
     ) {
-      out.push(s.serverUrl)
+      out.push(s)
     } else {
       console.log('Low blockheight: ' + s.serverUrl + ': ' + s.blockHeight)
     }
@@ -193,17 +182,17 @@ type ServerChecks = {
   checkVersion: boolean,
   checkHeader: boolean,
   checkHeight: boolean,
-  checkTxSegwit: boolean,
-  checkTxNonSegwit: boolean
+  checkTx: number
 }
 
 type ServerResults = {
   checks: ServerChecks,
+  currencyCodes: Array<string>,
   currencyCode: string,
-  hasSegwit: boolean | null,
   blockHeight: number,
   serverUrl: string,
   v11: boolean | null,
+  serverVersion: number,
   electrumx: boolean | null
 }
 
@@ -219,23 +208,31 @@ const blankQuery = {
 
 function checkVersion (serverResults: ServerResults): QueryCommand {
   return {
-    cmdString: '{ "id": __ID__, "method": "server.version", "params": ["1.1", "1.1"] }\n',
+    cmdString: '{ "id": __ID__, "method": "server.version", "params": ["Edge", ["1.1", "1.3"]] }\n',
     resultHandler: (resultObj: Object) => {
       if (typeof resultObj.result !== 'undefined') {
         const result = resultObj.result
         if (typeof result === 'object' && result.length === 2) {
           // Only accept ElectrumX servers since they don't prune history
-          serverResults.v11 = (parseFloat(result[1]) >= 1.1)
-          serverResults.electrumx = result[0].toLowerCase().includes('electrumx')
+          serverResults.serverVersion = parseFloat(result[1])
+          serverResults.v11 = (serverResults.serverVersion >= 1.1)
+          serverResults.electrumx =
+            result[0].toLowerCase().includes('electrumx') || result[0].toLowerCase().includes('electronx')
         } else if (typeof result === 'string') {
           serverResults.v11 = false
-          serverResults.electrumx = result.toLowerCase().includes('electrumx')
+          serverResults.electrumx =
+            result.toLowerCase().includes('electrumx') || result.toLowerCase().includes('electronx')
         } else {
+          console.log(`checkVersion failed 1: ${serverResults.serverUrl}`)
+          console.log(`  result: ${JSON.stringify(result)}`)
           return false
         }
       } else {
+        console.log(`checkVersion failed 2: ${serverResults.serverUrl}`)
+        console.log(`  result: ${JSON.stringify(resultObj)}`)
         return false
       }
+      console.log(`checkVersion success: ${serverResults.serverUrl} electrumx=${serverResults.electrumx ? 'true' : 'false'} version=${serverResults.serverVersion}`)
       serverResults.checks.checkVersion = true
       return true
     }
@@ -247,10 +244,13 @@ function checkHeight (serverResults: ServerResults): QueryCommand {
     cmdString: '{ "id": __ID__, "method": "blockchain.headers.subscribe", "params": [] }\n',
     resultHandler: (resultObj: Object) => {
       if (typeof resultObj.result !== 'undefined') {
-        serverResults.blockHeight = resultObj.result.block_height
+        console.log(`checkHeight success: ${serverResults.serverUrl}`)
+        serverResults.blockHeight = resultObj.result.block_height || resultObj.result.height
         serverResults.checks.checkHeight = true
         return true
       }
+      console.log(`checkHeight failed: ${serverResults.serverUrl}`)
+      console.log(`  result: ${JSON.stringify(resultObj)}`)
       return false
     }
   }
@@ -268,55 +268,17 @@ function checkHeader1k (serverResults: ServerResults): QueryCommand {
           const serverInfo = _serverInfos[cc]
           if (resultObj.result.merkle_root === serverInfo.blockMerkle1k) {
             serverResults.checks.checkHeader = true
-            serverResults.currencyCode = serverInfo.currencyCode
+            if (!serverResults.currencyCodes) {
+              serverResults.currencyCodes = []
+            }
+            serverResults.currencyCodes.push(serverInfo.currencyCode)
           }
         }
+        console.log(`checkHeader1k success: ${serverResults.serverUrl} ${serverResults.currencyCodes.toString()}`)
         return true
       }
-      return false
-    }
-  }
-}
-
-function checkHeader500k (serverResults: ServerResults): QueryCommand {
-  return {
-    cmdString: '{ "id": __ID__, "method": "blockchain.block.get_header", "params": [ 500000 ] }\n',
-    resultHandler: (resultObj: Object) => {
-      if (
-        typeof resultObj.result !== 'undefined' &&
-        typeof resultObj.result.merkle_root !== 'undefined'
-      ) {
-        for (const cc in _serverInfos) {
-          const serverInfo = _serverInfos[cc]
-          if (resultObj.result.merkle_root === serverInfo.blockMerkle500k) {
-            serverResults.checks.checkHeader = true
-            serverResults.currencyCode = serverInfo.currencyCode
-          }
-        }
-        return true
-      }
-      return false
-    }
-  }
-}
-
-function checkHeader1400k (serverResults: ServerResults): QueryCommand {
-  return {
-    cmdString: '{ "id": __ID__, "method": "blockchain.block.get_header", "params": [ 1400000 ] }\n',
-    resultHandler: (resultObj: Object) => {
-      if (
-        typeof resultObj.result !== 'undefined' &&
-        typeof resultObj.result.merkle_root !== 'undefined'
-      ) {
-        for (const cc in _serverInfos) {
-          const serverInfo = _serverInfos[cc]
-          if (resultObj.result.merkle_root === serverInfo.blockMerkle1400k) {
-            serverResults.checks.checkHeader = true
-            serverResults.currencyCode = serverInfo.currencyCode
-          }
-        }
-        return true
-      }
+      console.log(`checkHeader1k failed: ${serverResults.serverUrl}`)
+      console.log(`  result: ${JSON.stringify(resultObj)}`)
       return false
     }
   }
@@ -327,17 +289,19 @@ function checkTxid (serverResults: ServerResults, serverInfo: CheckServerInfo): 
     cmdString: `{ "id": __ID__, "method": "blockchain.transaction.get", "params": ["${serverInfo.checkTxid}"] }\n`,
     resultHandler: (resultObj: Object) => {
       if (typeof resultObj.result !== 'undefined') {
-        if (resultObj.result.toLowerCase().includes(serverInfo.txRawNonSegwit)) {
-          serverResults.hasSegwit = false
-        } else if (resultObj.result.toLowerCase().includes(serverInfo.txRawSegwit)) {
-          serverResults.hasSegwit = true
+        if (resultObj.result.toLowerCase().includes(serverInfo.txRaw)) {
+          serverResults.checks.checkTx++
+          serverResults.currencyCode = serverInfo.currencyCode
+          console.log(`checkTxid success: ${serverResults.serverUrl} ${serverInfo.currencyCode}`)
+          return true
         } else {
+          // console.log(`checkTxid failed 1: ${serverResults.serverUrl} ${serverInfo.currencyCode}`)
+          // console.log(`  result: ${JSON.stringify(resultObj.result)}`)
           return false
         }
-        serverResults.checks.checkTxSegwit = true
-        serverResults.checks.checkTxNonSegwit = true
-        return true
       }
+      // console.log(`checkTxid failed 2: ${serverResults.serverUrl} ${serverInfo.currencyCode}`)
+      // console.log(`  result: ${JSON.stringify(resultObj)}`)
       return false
     }
   }
@@ -365,13 +329,16 @@ function checkServer (serverUrl: string): Promise<ServerResults | null> {
         checkVersion: false,
         checkHeight: false,
         checkHeader: false,
-        checkTxSegwit: false,
-        checkTxNonSegwit: false
+        checkTx: 0
+        // checkTxSegwit: false,
+        // checkTxNonSegwit: false
       },
+      currencyCodes: [],
       currencyCode: '',
-      hasSegwit: null,
+      // hasSegwit: null,
       blockHeight: 0,
       serverUrl: serverUrl,
+      serverVersion: 0,
       v11: null,
       electrumx: null
     }
@@ -396,8 +363,6 @@ function checkServer (serverUrl: string): Promise<ServerResults | null> {
         queries.push(checkVersion(serverResults))
         queries.push(checkHeight(serverResults))
         queries.push(checkHeader1k(serverResults))
-        queries.push(checkHeader500k(serverResults))
-        queries.push(checkHeader1400k(serverResults))
 
         for (const q of queries) {
           if (q.cmdString.length > 0) {
@@ -413,9 +378,9 @@ function checkServer (serverUrl: string): Promise<ServerResults | null> {
 
       client.on('data', (data) => {
         let results = data.toString('ascii')
-        console.log('\nBEGIN data for ' + serverUrl)
-        console.log(results)
-        console.log('END data for ' + serverUrl + '\n')
+        // console.log('\nBEGIN data for ' + serverUrl)
+        // console.log(results)
+        // console.log('END data for ' + serverUrl + '\n')
 
         let arrayResults = []
 
@@ -447,39 +412,44 @@ function checkServer (serverUrl: string): Promise<ServerResults | null> {
           }
         }
 
+        let numMatchingCurrencies = 0
         if (
           serverResults.checks.checkVersion === true &&
           serverResults.checks.checkHeight === true &&
           serverResults.checks.checkHeader === true &&
           queryTxids === false
         ) {
-          // See which serverInfo currencyCode matches this server
-          let serverInfo: CheckServerInfo | null = null
+          // See which serverInfos currencyCode matches this server
+          let serverInfos: Array<CheckServerInfo> = []
           for (const cc in _serverInfos) {
             const s = _serverInfos[cc]
-            if (s.currencyCode === serverResults.currencyCode) {
-              serverInfo = s
+            for (const srCC of serverResults.currencyCodes) {
+              if (s.currencyCode === srCC) {
+                serverInfos.push(s)
+              }
             }
           }
 
-          if (!serverInfo) {
+          if (!serverInfos.length) {
             resolved = true
             resolve(null)
             return
           }
+          numMatchingCurrencies = serverInfos.length
 
           // Push txid queries specific for that currency code serverInfo
-          const q2 = checkTxid(serverResults, serverInfo)
-          const cmd2 = q2.cmdString.replace('__ID__', id.toString())
-          queries.push(q2)
-          client.write(cmd2)
+
+          for (const serverInfo of serverInfos) {
+            const q2 = checkTxid(serverResults, serverInfo)
+            const cmd2 = q2.cmdString.replace('__ID__', id.toString())
+            queries.push(q2)
+            client.write(cmd2)
+            id++
+          }
           queryTxids = true
         } else if (queryTxids) {
           // Check to see if we have all results needed
-          if (
-            serverResults.checks.checkTxNonSegwit === true &&
-            serverResults.checks.checkTxSegwit === true
-          ) {
+          if (serverResults.checks.checkTx >= numMatchingCurrencies) {
             resolved = true
             client.write('Goodbye!!!')
             resolve(serverResults)

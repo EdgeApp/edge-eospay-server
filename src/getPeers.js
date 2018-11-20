@@ -3,15 +3,14 @@
 const net = require('net')
 const tls = require('tls')
 
-function dateString () {
-  const date = new Date()
-  return date.toDateString() + ':' + date.toTimeString()
-}
+// function dateString () {
+//   const date = new Date()
+//   return date.toDateString() + ':' + date.toTimeString()
+// }
 
-function getPeers (_serverUrl: string) {
+function getPeers (_serverUrl: string): Promise<Object> {
   const serverUrl = _serverUrl
-  return new Promise((resolve) => {
-    console.log('*********** getPeers: ' + serverUrl)
+  return new Promise((resolve: Function, reject: Function): void => {
     // let regex = new RegExp(/electrum:\/\/(.*):(.*)/)
     let regex
     let ssl = false
@@ -38,10 +37,10 @@ function getPeers (_serverUrl: string) {
         tcp = net
       }
       client = tcp.connect({ port, host, rejectUnauthorized: false }, () => {
-        console.log('connect')
+        // console.log('connect')
         const query = '{ "id": 2, "method": "server.peers.subscribe", "params": [] }\n'
         client.write(query)
-        console.log('query:' + query + '***')
+        // console.log('query:' + query + '***')
       })
     } else {
       resolve({serverUrl, peers: -1})
@@ -53,7 +52,7 @@ function getPeers (_serverUrl: string) {
 
     client.on('data', (data) => {
       let results = data.toString('ascii')
-      console.log(results)
+      // console.log(results)
       let resultObj
       try {
         resultObj = JSON.parse(jsonData + results)
@@ -96,7 +95,7 @@ function getPeers (_serverUrl: string) {
 
           if (numTxHistory < 1000) {
             // Exit
-            console.log(serverName + ': Insufficient numTxHistory:' + numTxHistory)
+            // console.log(serverName + ': Insufficient numTxHistory:' + numTxHistory)
             continue
           }
 
@@ -107,30 +106,30 @@ function getPeers (_serverUrl: string) {
           }
           if (parseInt(port) > 0) {
             const url = 'electrum://' + serverName + ':' + port
-            console.log('Add peer: ' + url + ' from:' + serverUrl)
+            // console.log('Add peer: ' + url + ' from:' + serverUrl)
             peers.push(url)
           }
         }
       }
-      console.log(dateString())
-      console.log('-------------- FINISHED getPeers: ' + serverUrl)
+      // console.log(dateString())
+      // console.log('-------------- FINISHED getPeers: ' + serverUrl)
       client.write('Goodbye!!!')
       client.destroy()
       resolved = true
       resolve({serverUrl, peers})
     })
 
-    client.on('error', function (err) {
-      const e = err.code ? err.code : ''
-      console.log(dateString())
-      console.log('getPeers:' + serverUrl + ' ERROR:' + e)
+    client.on('error', function (error) {
+      // const e = err.code ? err.code : ''
+      // console.log(dateString())
+      // console.log('getPeers:' + serverUrl + ' ERROR:' + e)
       resolved = true
-      resolve({serverUrl, peers: -1})
+      resolve({serverUrl, peers: -1, error})
     })
 
     client.on('close', function () {
-      console.log(dateString())
-      console.log('CLOSE getPeers:' + serverUrl)
+      // console.log(dateString())
+      // console.log('CLOSE getPeers:' + serverUrl)
       resolved = true
       resolve({serverUrl, peers: -1})
     })
@@ -139,8 +138,8 @@ function getPeers (_serverUrl: string) {
       if (!resolved) {
         client.write('Goodbye!!!')
         client.destroy()
-        console.log(dateString())
-        console.log('TIMEOUT getPeers:' + serverUrl)
+        // console.log(dateString())
+        // console.log('TIMEOUT getPeers:' + serverUrl)
         resolve({serverUrl, peers: -1})
       }
     }, 10000)

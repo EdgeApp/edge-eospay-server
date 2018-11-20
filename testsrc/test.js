@@ -3,15 +3,20 @@
  */
 /* global describe it */
 const { checkServers } = require('../lib/checkServers.js')
+const serverInfos = require('../testJson/serverInfos.json')
+const seedServers = require('../testJson/seedServers.json')
 
 const assert = require('assert')
 
 describe('Check servers', function () {
   it('Has any good and bad servers', function (done) {
-    this.timeout(120000)
+    this.timeout(1000000)
     assert.doesNotThrow(() => {
-      checkServers([]).then(servers => {
-        assert.equal(servers.BTC.length >= 1, true)
+      checkServers(seedServers.servers, serverInfos).then(servers => {
+        assert.equal(!!servers.BC1, true)
+        assert.equal(!!servers.BCH, true)
+        assert.equal(!!servers.LTC, true)
+        assert.equal(!!servers.DASH, true)
         assert.equal(servers.BC1.length >= 1, true)
         assert.equal(servers.BCH.length >= 1, true)
         assert.equal(servers.LTC.length >= 1, true)
