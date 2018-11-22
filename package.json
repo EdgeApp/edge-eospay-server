@@ -1,11 +1,11 @@
 {
-  "name": "edge-info-server",
-  "version": "0.2.0",
-  "description": "Info Server for Edge Wallet and SDK",
+  "name": "edge-eos-name-payment-api",
+  "version": "0.0.1",
+  "description": "Eos name registration and payment API based on Info Server for Edge Wallet and SDK",
   "main": "lib/indexInfo.js",
   "repository": {
     "type": "git",
-    "url": "git+ssh://git@github.com/EdgeApp/edge-info-server.git"
+    "url": "git+ssh://git@github.com:chuckwilliams37/edge-eos-name-payment-api.git"
   },
   "keywords": [
     "Edge",
@@ -15,14 +15,17 @@
     "Ethereum",
     "Blockchain"
   ],
-  "author": "Paul Puey <paul@edge.app>",
+  "author": "Chuck Williams <chuck@screenscholar.com> & Paul Puey <paul@edge.app>",
   "license": "MIT",
   "bugs": {
-    "url": "https://github.com/EdgeApp/edge-info-server/issues"
+    "url": "https://github.com/chuckwilliams37/edge-eos-name-payment-api/issues"
   },
-  "homepage": "https://github.com/EdgeApp/edge-info-server#readme",
+  "homepage": "hhttps://github.com/chuckwilliams37/edge-eos-name-payment-api#readme",
   "dependencies": {
+    "ajv": "^6.5.5",
     "biggystring": "^1.0.3",
+    "bitauth": "^0.3.2",
+    "bitpay-rest": "^0.3.2",
     "body-parser": "~1.0.1",
     "cors": "^2.8.3",
     "es6-promisify-all": "^0.1.0",
@@ -46,6 +49,7 @@
     "flow-remove-types": "^1.2.3",
     "husky": "^0.14.3",
     "mocha": "^3.1.2",
+    "nodemon": "^1.18.6",
     "standard": "^11.0.1"
   },
   "standard": {
@@ -64,6 +68,7 @@
     "test": "npm run lint && mocha",
     "precommit": "npm run build && npm run lint",
     "prepare": "npm run build",
-    "start": "node lib/indexInfo.js"
+    "start": "node lib/indexInfo.js",
+    "dev-watch-eos" : "npx nodemon src/eos-name-server.js"
   }
 }
