@@ -3,5 +3,8 @@ node_modules/
 lib/
 dist/
 test/
+config/**.*
 serverConfig.json
 .envconfig
+
+.DS_Store
