@@ -6,6 +6,8 @@ const bitauth = require('bitauth')
 const express = require("express");
 const bodyParser = require('body-parser')
 
+
+
 // GET /api/v1/getSupportedCurrencies
 // response = 
 // {
@@ -250,13 +252,85 @@ app.post(CONFIG.apiVersionPrefix + "/activateAccount", function (req, res) {
   //validate body
   const body = req.body
   const errors = []
+  //expectedParams
+  const bodyParams =  ['currencyCode','ownerPublicKey','activePublicKey']
   const validations = [
-    (params) => {
-      console.log("validation 001")
+    () => {
+      //body has necessary parameters
+      if(typeof(body) !== 'undefined' && typeof(body) === 'object' && body) {
+        bodyParams.forEach( (param) => {
+          // console.log(`Validating: ${param}...`)
+          if (body.hasOwnProperty(param) && typeof body[param] !== 'undefined' && body[param] && body[param].length > 0 && typeof(body[param]) === 'string') {
+            
+            switch (param) {
+              case 'currencyCode':
+              // console.log (`currency code requested : ${body[param]}` )
+                 if (isSupportedCurrency(body[param]) === false ) {
+                   errors.push(
+                     getErrorObject(
+                       `CurrencyNotSupported`,
+                       `This currency '${body[param]}' by this API is not supported at this time.`,
+                       {supportedCurrencies : CONFIG.supportedCurrencies}
+                     )
+                   )
+                 }
+                break;
+            }
+
+          } else {
+            errors.push(
+              getErrorObject(
+                `Invalid_${param}`,
+                `${param} is NOT defined as a string in the incoming body.`
+              )
+            )
+          }
+        })
+      } else {
+        errors.push(
+          getErrorObject(
+            `Invalid_POST_Body`,
+            `No parameters were detected in the incoming body.`
+          )
+        )
+      }
     }
   ]
 
-  res.status(200).send(body)
+  validations.forEach( (valFn,i) => {
+    console.log(`validation ${i}`)
+    valFn()
+  })
+
+  if (errors.length > 0) {
+    res.status(500).send(errors)
+  } else {
+    //createInvoice for payment & setup watcher
+    const client = getBtcPayClient()
+    client.create_invoice({price: 20, currency: 'USD'})
+      .then((invoice) => {
+        console.log("invoice: " , invoice)
+        res.status(200).send(invoice)
+        // res.status(200).send(
+        //   {
+        //       "paymentAddress": "1z098faoi3rjoawiejfiuawefilawhefj",
+        //       "expireTime": 1102345678, // Epoch time in seconds
+        //       "amount": "0.000123"
+        //   }
+        // )
+      })
+      .catch(
+        (err) => {
+          console.log('Error creating invoice:' , err)
+          res.status(200).send(err)
+        })
+
+    //once invoice is paid (on notification? Will btcpay notify URL)- send EOS payment command
+
+    //eos.createAccountPackage('ownerPubKey', 'activePubKey', 'accountName', bytes, stake_net_quantity, stake_cpu_quantity, transfer)
+
+    
+  }
 
 // POST /api/v1/activateAccount
 // body = 
@@ -336,4 +410,29 @@ function pairWithBtcPayServer()  {
   req.end()
 
   return req
+}
+
+function getErrorObject(errorCode, message, data) {
+  const error = {};
+
+  [message, errorCode, data].map( (arg) => {
+    arg && arg === errorCode ? error.errorCode = arg : null
+    arg && arg === message ? error.message = arg : null
+    arg && arg === data ? error.data = arg : null
+  })
+
+  return error
+}
+
+function isSupportedCurrency(currencyCode) {
+  console.log(`isSupportedCurrency() ${currencyCode}`, currencyCode, typeof(currencyCode), CONFIG.supportedCurrencies.hasOwnProperty(currencyCode) )
+  let _returnVal = false;
+  
+  _returnVal = currencyCode 
+  && typeof(currencyCode) === 'string' 
+  && CONFIG.supportedCurrencies.hasOwnProperty(currencyCode) 
+  && CONFIG.supportedCurrencies[currencyCode] ? true : false
+  
+  console.log(`isSupportedCurrency() : ${_returnVal}`)
+  return _returnVal;
 }

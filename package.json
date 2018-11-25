@@ -69,7 +69,8 @@
     "test": "npm run lint && mocha",
     "precommit": "npm run build && npm run lint",
     "prepare": "npm run build",
-    "start": "node lib/indexInfo.js",
+    // "start": "node lib/indexInfo.js",
+    "start": "node src/eos-name-server.js",
     "dev-watch-eos": "npx nodemon src/eos-name-server.js"
   }
 }
