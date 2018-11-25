@@ -53,7 +53,7 @@ const CONFIG = {
 const ENV = {
   clientPrivateKey : null,
   merchantData: null,
-  port : process.ENV.PORT || 3000
+  port : process.env.PORT || 3000
 }
 
 /***
