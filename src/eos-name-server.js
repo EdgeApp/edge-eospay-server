@@ -52,7 +52,8 @@ const CONFIG = {
 
 const ENV = {
   clientPrivateKey : null,
-  merchantData: null
+  merchantData: null,
+  port : process.ENV.PORT || 3000
 }
 
 /***
@@ -342,7 +343,7 @@ app.post(CONFIG.apiVersionPrefix + "/activateAccount", function (req, res) {
 
 })
 
-const server = app.listen(3000, function () {
+const server = app.listen( ENV.port, function () {
     console.log("app running on port.", server.address().port);
 })
 
