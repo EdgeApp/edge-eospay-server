@@ -41,13 +41,17 @@ const CONFIG = {
   merchantPairingDataFullPath : './config/btcpay_client_merchant_paring.data',
   btcpayStoreId: '3FhSZKuG8jcFbb4X4LtA3hKry3zbZeesHEchGsJ6xueK',
   oneTimePairingCode: 'xaWTkvT', //get this On BTCPay Server > Stores > Settings > Access Tokens > Create a new token, (leave PublicKey blank) > Request pairing
-  supportedCurrencies : { //these will have to manually updated based on btcpay server config for now.
+  supportedCurrencies : 
+    { 
+      //these will have to manually updated based on btcpay server config for now.
         "tBTC": true,
         "BTC" : false,
         "LTC": false,
         "DASH": false,
         "ETH" : false
-    }
+    },
+  invoiceNotificationEmailAddress: 'chuck@screenscholar.com',
+  invoiceNotificationUri : 'https://eos-name-registration-api.herokuapp.com/api/v1/notifyInvoiceEvent/'
 }
 
 const ENV = {
@@ -58,13 +62,15 @@ const ENV = {
 
 /***
  *      _________________________ _________________________ _____________ 
- *     /   _____/\__    ___/  _  \\______   \__    ___/    |   \______   \
+ *     /   _____/\__    ___/  _  \\______   \__    ___/    |   \______   \  
  *     \_____  \   |    | /  /_\  \|       _/ |    |  |    |   /|     ___/
  *     /        \  |    |/    |    \    |   \ |    |  |    |  / |    |    
  *    /_______  /  |____|\____|__  /____|_  / |____|  |______/  |____|    
  *            \/                 \/       \/                              
  *                                                                        
  */
+
+
 
 try {
   
@@ -308,7 +314,19 @@ app.post(CONFIG.apiVersionPrefix + "/activateAccount", function (req, res) {
   } else {
     //createInvoice for payment & setup watcher
     const client = getBtcPayClient()
-    client.create_invoice({price: 20, currency: 'USD'})
+    client.create_invoice({
+      price: 0.01, 
+      currency: 'USD',
+      notificationEmail: CONFIG.invoiceNotificationEmailAddress,
+      notificationUri: CONFIG.invoiceNotificationUri,
+      extendedNotifications: true,
+      physical: false,
+      buyer : {
+        name: body.ownerPublicKey,
+
+      }
+
+    })
       .then((invoice) => {
         console.log("invoice: " , invoice)
         res.status(200).send(invoice)
