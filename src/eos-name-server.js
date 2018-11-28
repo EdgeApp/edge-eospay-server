@@ -7,7 +7,6 @@ const bitauth = require('bitauth')
 const express = require("express");
 const bodyParser = require('body-parser')
 const nano = require('nano')
-const promisify = require('promisify-node')
 
 
 // GET /api/v1/getSupportedCurrencies
@@ -107,71 +106,71 @@ try {
 
   ENV.clientPrivateKey = null;
 }
+/***
+ *                                    _____              
+ *      ____ _____    ____   ____   _/ ____\___________  
+ *     /    \\__  \  /    \ /  _ \  \   __\/  _ \_  __ \ 
+ *    |   |  \/ __ \|   |  (  <_> )  |  | (  <_> )  | \/ 
+ *    |___|  (____  /___|  /\____/   |__|  \____/|__|    
+ *         \/     \/     \/                              
+ *                               .__         .______.    
+ *      ____  ____  __ __   ____ |  |__    __| _/\_ |__  
+ *    _/ ___\/  _ \|  |  \_/ ___\|  |  \  / __ |  | __ \ 
+ *    \  \__(  <_> )  |  /\  \___|   Y  \/ /_/ |  | \_\ \
+ *     \___  >____/|____/  \___  >___|  /\____ |  |___  /
+ *         \/                  \/     \/      \/      \/ 
+ */
 
-
-//db check & init
 try {
   console.log("DB check & init")
   
-  // Nano for CouchDB
-  // =============================================================================
+  
   const nanoDb = nano(CONFIG.dbFullpath)
-  
-  const db = {
-    invoiceTx : nanoDb.db.use('invoice_tx')
-  }
-  
-  console.log("db", db)
+  const invoiceTxDb = nanoDb.db.use('invoice_tx')
+
+  // nanoDb.db.destroy('invoice_tx',(err, body) => {
+  //   if (err) { 
+  //     console.log( '***ERROR destroying db: invoice_tx', err)
+  //   } else{
+  //     console.log('database invoice_tx destroyed!', body)
+  //   } 
+  // })
+
+
 
   nanoDb.db.get('invoice_tx', (err, dbResponse) => {
     console.log("err: " , err ) 
-    if (err && err.error === 'not_found') {
-      nanoDb.db.create('invoice_tx',(err, body) => {
-        if (err) { 
-          console.log( '***ERROR CREATING db: invoice_tx', err)
-        } else{
-          console.log('database invoice_tx created!', body)
-        } 
-      })
-    } else {
-      console.log("dbResponse: " , dbResponse )
+
+
+    switch (true) {
+      case err && err.error === 'not_found':
+        throw (new Error("invoice_tx database does not exist."));
+        // nanoDb.db.create('invoice_tx',(err, body) => {
+        //   if (err) { 
+        //     console.log( '***ERROR CREATING db: invoice_tx', err)
+        //   } else{
+        //     console.log('database invoice_tx created!', body)
+        //   } 
+        // })
+
+
+      break;
+
+      case err && err.error === 'nodedown':
+        throw (new Error("Database appears to be down."));
+        break;
+
+      default:
+        console.log("dbResponse: " , dbResponse )
+      break;
+
     }
   })
-
-  //  nanoDb.db.get('alice').then((body) => {
-  //   console.log(body);
-  // })
-
-  nanoDb.db.list((err,body) => {
-    // body is an array
-    console.log("list response: " , body)
-    body.forEach((db) => {
-      console.log(db);
-    });
-  });
-
-  // if (db.invoiceTx === null ) {
-  //   console.log("invoice_tx database not detected in couchDB...creating", e)
-  //   // const dbAuth = nanoDb.db.use('db_info')
-  //   // const dbLogs = nanoDb.db.use('db_logs')
-    
-  // } 
-
-
-
-  // promisify(dbAuth)
-  // promisify(dbLogs)
-  // =============================================================================
-
-
-  // nanoDb.db.get('alice').then((body) => {
-  //   console.log(body)
-  // })
-  
 } catch (e) {
   console.log("ERROR in DB check & init", e)
-
+  
 }
+// =============================================================================
 
 
 const app = express();
@@ -381,6 +380,9 @@ app.post(CONFIG.apiVersionPrefix + "/activateAccount", function (req, res) {
     }
   ]
 
+  let invoiceTx = {}
+  
+
   validations.forEach( (valFn,i) => {
     console.log(`validation ${i}`)
     valFn()
@@ -406,7 +408,18 @@ app.post(CONFIG.apiVersionPrefix + "/activateAccount", function (req, res) {
     })
       .then((invoice) => {
         console.log("invoice: " , invoice)
-        res.status(200).send(invoice)
+
+        invoiceTx.insert()
+
+        
+        invoiceTx = Object.assign(invoice)
+        
+        // invoiceTx._id = _id
+        // invoiceTx._rev = _rev
+        invoiceTx.insert(invoiceTx, 'invoice_tx', (insertResult)=> {
+          res.status(200).send({message: 'transaction saved', insertResult: insertResult})
+        })
+        
         // res.status(200).send(
         //   {
         //       "paymentAddress": "1z098faoi3rjoawiejfiuawefilawhefj",
@@ -706,4 +719,5 @@ function isSupportedCurrency(currencyCode) {
   
   console.log(`isSupportedCurrency() : ${_returnVal}`)
   return _returnVal;
+  
 }
