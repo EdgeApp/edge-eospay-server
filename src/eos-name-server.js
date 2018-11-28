@@ -1,11 +1,13 @@
 
 const fs = require('fs')
+const http = require('http')
 const https = require('https')
 const btcpay = require('btcpay')
 const bitauth = require('bitauth')
 const express = require("express");
 const bodyParser = require('body-parser')
-
+const nano = require('nano')
+const promisify = require('promisify-node')
 
 
 // GET /api/v1/getSupportedCurrencies
@@ -51,13 +53,16 @@ const CONFIG = {
         "ETH" : false
     },
   invoiceNotificationEmailAddress: 'chuck@screenscholar.com',
-  invoiceNotificationUri : 'https://eos-name-registration-api.herokuapp.com/api/v1/notifyInvoiceEvent/'
+  invoiceNotificationURL : 'https://eos-name-api.cryptoambassador.work/api/v1/invoiceNotificationEvent/',
+  dbFullpath : 'http://admin:admin@localhost:5984'
 }
 
 const ENV = {
   clientPrivateKey : null,
   merchantData: null,
-  port : process.env.PORT || 3000
+  port : process.env.PORT || 3000,
+  serverSSLKeyFilePath :'/etc/letsencrypt/live/eos-name-api.cryptoambassador.work/privkey.pem',
+  serverSSLCertFilePath: '/etc/letsencrypt/live/eos-name-api.cryptoambassador.work/fullchain.pem'
 }
 
 /***
@@ -104,10 +109,82 @@ try {
 }
 
 
+//db check & init
+try {
+  console.log("DB check & init")
+  
+  // Nano for CouchDB
+  // =============================================================================
+  const nanoDb = nano(CONFIG.dbFullpath)
+  
+  const db = {
+    invoiceTx : nanoDb.db.use('invoice_tx')
+  }
+  
+  console.log("db", db)
 
-const app = express()
+  nanoDb.db.get('invoice_tx', (err, dbResponse) => {
+    console.log("err: " , err ) 
+    if (err && err.error === 'not_found') {
+      nanoDb.db.create('invoice_tx',(err, body) => {
+        if (err) { 
+          console.log( '***ERROR CREATING db: invoice_tx', err)
+        } else{
+          console.log('database invoice_tx created!', body)
+        } 
+      })
+    } else {
+      console.log("dbResponse: " , dbResponse )
+    }
+  })
+
+  //  nanoDb.db.get('alice').then((body) => {
+  //   console.log(body);
+  // })
+
+  nanoDb.db.list((err,body) => {
+    // body is an array
+    console.log("list response: " , body)
+    body.forEach((db) => {
+      console.log(db);
+    });
+  });
+
+  // if (db.invoiceTx === null ) {
+  //   console.log("invoice_tx database not detected in couchDB...creating", e)
+  //   // const dbAuth = nanoDb.db.use('db_info')
+  //   // const dbLogs = nanoDb.db.use('db_logs')
+    
+  // } 
+
+
+
+  // promisify(dbAuth)
+  // promisify(dbLogs)
+  // =============================================================================
+
+
+  // nanoDb.db.get('alice').then((body) => {
+  //   console.log(body)
+  // })
+  
+} catch (e) {
+  console.log("ERROR in DB check & init", e)
+
+}
+
+
+const app = express();
+const credentials = {
+  cert : fs.readFileSync(ENV.serverSSLCertFilePath),
+  key : fs.readFileSync(ENV.serverSSLKeyFilePath)
+}
 app.use(bodyParser.json())
 app.use(bodyParser.urlencoded({ extended: true }))
+
+// Starting both http & https servers
+const httpServer = http.createServer(app);
+const httpsServer = https.createServer(credentials, app);
 
 /***
  *    __________ ________   ____ _________________________ _________
@@ -318,7 +395,7 @@ app.post(CONFIG.apiVersionPrefix + "/activateAccount", function (req, res) {
       price: 0.01, 
       currency: 'USD',
       notificationEmail: CONFIG.invoiceNotificationEmailAddress,
-      notificationUri: CONFIG.invoiceNotificationUri,
+      notificationURL: CONFIG.invoiceNotificationURL,
       extendedNotifications: true,
       physical: false,
       buyer : {
@@ -361,8 +438,183 @@ app.post(CONFIG.apiVersionPrefix + "/activateAccount", function (req, res) {
 
 })
 
-const server = app.listen( ENV.port, function () {
-    console.log("app running on port.", server.address().port);
+app.post(CONFIG.apiVersionPrefix + "/invoiceNotificationEvent", function (req, res) {
+
+  console.log("/invoiceNotificationEvent:body", req.body);
+  res.status(200).send({message:'Event received', body:req.body})
+
+/*
+
+/invoiceNotificationEvent:body 
+{ event: { code: 1002, name: 'invoice_receivedPayment' },
+  data:
+   { id: 'SBf8y8ryN23rWBuUNCuhNh',
+     url:
+      'https://btcpay.cryptosystemsadvisor.com/invoice?id=SBf8y8ryN23rWBuUNCuhNh',
+     posData: null,
+     status: 'new',
+     btcPrice: '0.00000271',
+     price: 0.01,
+     currency: 'USD',
+     invoiceTime: 1543288700000,
+     expirationTime: 1543289600000,
+     currentTime: 1543288919421,
+     btcPaid: '0.00000350',
+     btcDue: '0.00000221',
+     rate: 3695.3116514207304,
+     exceptionStatus: 'paidPartial',
+     buyerFields: null,
+     transactionCurrency: null,
+     paymentSubtotals: { BTC: 271 },
+     paymentTotals: { BTC: 571 },
+     amountPaid: '0.00000000',
+     exchangeRates: { BTC: { USD: 0 } } } }
+/invoiceNotificationEvent:body { id: 'SBf8y8ryN23rWBuUNCuhNh',
+  url:
+   'https://btcpay.cryptosystemsadvisor.com/invoice?id=SBf8y8ryN23rWBuUNCuhNh',
+  posData: null,
+  status: 'expired',
+  btcPrice: '0.00000271',
+  price: 0.01,
+  currency: 'USD',
+  invoiceTime: 1543288700000,
+  expirationTime: 1543289600000,
+  currentTime: 1543289600029,
+  btcPaid: '0.00000350',
+  btcDue: '0.00000221',
+  rate: 3695.3116514207304,
+  exceptionStatus: 'paidPartial',
+  buyerFields: null,
+  transactionCurrency: null,
+  paymentSubtotals: { BTC: 271 },
+  paymentTotals: { BTC: 571 },
+  amountPaid: '0.00000000',
+  exchangeRates: { BTC: { USD: 0 } } }
+/invoiceNotificationEvent:body { event: { code: 1004, name: 'invoice_expired' },
+  data:
+   { id: 'SBf8y8ryN23rWBuUNCuhNh',
+     url:
+      'https://btcpay.cryptosystemsadvisor.com/invoice?id=SBf8y8ryN23rWBuUNCuhNh',
+     posData: null,
+     status: 'expired',
+     btcPrice: '0.00000271',
+     price: 0.01,
+     currency: 'USD',
+     invoiceTime: 1543288700000,
+     expirationTime: 1543289600000,
+     currentTime: 1543289600034,
+     btcPaid: '0.00000350',
+     btcDue: '0.00000221',
+     rate: 3695.3116514207304,
+     exceptionStatus: 'paidPartial',
+     buyerFields: null,
+     transactionCurrency: null,
+     paymentSubtotals: { BTC: 271 },
+     paymentTotals: { BTC: 571 },
+     amountPaid: '0.00000000',
+     exchangeRates: { BTC: { USD: 0 } } } }
+/invoiceNotificationEvent:body { id: 'SBf8y8ryN23rWBuUNCuhNh',
+  url:
+   'https://btcpay.cryptosystemsadvisor.com/invoice?id=SBf8y8ryN23rWBuUNCuhNh',
+  posData: null,
+  status: 'expired',
+  btcPrice: '0.00000271',
+  price: 0.01,
+  currency: 'USD',
+  invoiceTime: 1543288700000,
+  expirationTime: 1543289600000,
+  currentTime: 1543289600043,
+  btcPaid: '0.00000350',
+  btcDue: '0.00000221',
+  rate: 3695.3116514207304,
+  exceptionStatus: 'paidPartial',
+  buyerFields: null,
+  transactionCurrency: null,
+  paymentSubtotals: { BTC: 271 },
+  paymentTotals: { BTC: 571 },
+  amountPaid: '0.00000000',
+  exchangeRates: { BTC: { USD: 0 } } }
+/invoiceNotificationEvent:body { event: { code: 2000, name: 'invoice_expiredPaidPartial' },
+  data:
+   { id: 'SBf8y8ryN23rWBuUNCuhNh',
+     url:
+      'https://btcpay.cryptosystemsadvisor.com/invoice?id=SBf8y8ryN23rWBuUNCuhNh',
+     posData: null,
+     status: 'expired',
+     btcPrice: '0.00000271',
+     price: 0.01,
+     currency: 'USD',
+     invoiceTime: 1543288700000,
+     expirationTime: 1543289600000,
+     currentTime: 1543289600047,
+     btcPaid: '0.00000350',
+     btcDue: '0.00000221',
+     rate: 3695.3116514207304,
+     exceptionStatus: 'paidPartial',
+     buyerFields: null,
+     transactionCurrency: null,
+     paymentSubtotals: { BTC: 271 },
+     paymentTotals: { BTC: 571 },
+     amountPaid: '0.00000000',
+     exchangeRates: { BTC: { USD: 0 } } } }
+/invoiceNotificationEvent:body { id: 'XfDZnsCsYmiHoiy2h8HTHx',
+  url:
+   'https://btcpay.cryptosystemsadvisor.com/invoice?id=XfDZnsCsYmiHoiy2h8HTHx',
+  posData: null,
+  status: 'complete',
+  btcPrice: '0.00000271',
+  price: 0.01,
+  currency: 'USD',
+  invoiceTime: 1543288321000,
+  expirationTime: 1543289221000,
+  currentTime: 1543290456398,
+  btcPaid: '0.00000371',
+  btcDue: '0.00000000',
+  rate: 3695.3116514207304,
+  exceptionStatus: false,
+  buyerFields: null,
+  transactionCurrency: null,
+  paymentSubtotals: { BTC: 271 },
+  paymentTotals: { BTC: 371 },
+  amountPaid: '0.00000000',
+  exchangeRates: { BTC: { USD: 0 } } }
+/invoiceNotificationEvent:body { event: { code: 1006, name: 'invoice_completed' },
+  data:
+   { id: 'XfDZnsCsYmiHoiy2h8HTHx',
+     url:
+      'https://btcpay.cryptosystemsadvisor.com/invoice?id=XfDZnsCsYmiHoiy2h8HTHx',
+     posData: null,
+     status: 'complete',
+     btcPrice: '0.00000271',
+     price: 0.01,
+     currency: 'USD',
+     invoiceTime: 1543288321000,
+     expirationTime: 1543289221000,
+     currentTime: 1543290456403,
+     btcPaid: '0.00000371',
+     btcDue: '0.00000000',
+     rate: 3695.3116514207304,
+     exceptionStatus: false,
+     buyerFields: null,
+     transactionCurrency: null,
+     paymentSubtotals: { BTC: 271 },
+     paymentTotals: { BTC: 371 },
+     amountPaid: '0.00000000',
+     exchangeRates: { BTC: { USD: 0 } } } }
+*/
+
+})
+
+// const server = app.listen( ENV.port, function () {
+//     console.log("app running on port.", server.address().port);
+// })
+
+httpServer.listen(ENV.port, () => {
+	console.log(`HTTP Server running on port ${ENV.port}` );
+})
+
+httpsServer.listen(443, () => {
+	console.log('HTTPS Server running on port 443');
 })
 
 /***
