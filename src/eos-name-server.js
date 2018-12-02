@@ -52,8 +52,8 @@ const CONFIG = {
   dbFullpath: 'http://admin:admin@localhost:5984',
   btcPayInvoicePropsToSave: [
     'url', 'status', 'btcPrice', 'btcDue', 'cryptoInfo', 'price', 'currency', 'invoiceTime', 'expirationTime',
-    'currentTime', 'lowFeeDetected', 'btcPaid', 'rate', 'exceptionStatus', 'refundAddressRequestPending', 'buyerPaidBtcMinerFee',
-    'bitcoinAddress', 'token', 'paymentSubtotals', 'paymentTotals', 'amountPaid', 'minerFees', 'exchangeRates', 'addresses'
+    'currentTime', 'lowFeeDetected', 'btcPaid', 'rate', 'exceptionStatus', 'refundAddressRequestPending', 
+    'token', 'paymentSubtotals', 'paymentTotals', 'amountPaid', 'minerFees', 'exchangeRates', 'addresses'
   ]
 }
 
@@ -80,7 +80,7 @@ try {
     // 634("Client private key: ", new Uint8Array(Buffer.from(data)).join('') )
     console.log('Client private key: ', data)
     if (err) {
-      getErrorObject('FailureReadingAPIClientPrivateKey', 'Error reading API private key for identifying to BTCPay Server. Please generate with a call to generateAndSavePrivateKey path.', err)
+      getErrorObject('FailureReadingAPIClientPrivateKey','Error reading API private key for identifying to BTCPay Server. Please generate with a call to generateAndSavePrivateKey path.',err)
     }
 
     ENV.clientPrivateKey = data
@@ -92,7 +92,7 @@ try {
 
   fs.readFile(CONFIG.merchantPairingDataFullPath, 'utf8', (err, data) => {
     if (err) {
-      getErrorObject('FailureReadingAPIClientMerchantCode', 'Error reading API merchant code for identifying to BTCPay Server. Please get this On BTCPay Server > Stores > Settings > Access Tokens > Create a new token, (leave PublicKey blank) > Request pairing, and enter code into API CONFIG.oneTimePairingCode.', err)
+      getErrorObject('FailureReadingAPIClientMerchantCode','Error reading API merchant code for identifying to BTCPay Server. Please get this On BTCPay Server > Stores > Settings > Access Tokens > Create a new token, (leave PublicKey blank) > Request pairing, and enter code into API CONFIG.oneTimePairingCode.',err)
     }
 
     if (data === null || data === undefined) {
@@ -415,16 +415,37 @@ app.post(CONFIG.apiVersionPrefix + '/invoiceNotificationEvent', function (req, r
   const btcpayInvoiceEventName = typeof (req.body) === 'object' && req.body.event && req.body.event.name
   const invoiceEventData = formatCleanupInvoiceData(typeof (req.body) === 'object' && (req.body.data || req.body))
   let invoiceTx = {}
-  let _doUpdateSwitch = false
+  let _doUpdate = false
+  const responseObject = {
+    errors: [],
+    warnings: [],
+    messages: []
+  }
   const btcPayNotificationResponse = {
-    ok: () => { res.status(200).send({message: 'ok'}) },
+    ok: () => { 
+      if (_doUpdate === false) {
+        res.status(200).send({message: 'ok'}) 
+      } else {
+        responseObject.messages.push({message: 'ok'})
+      }
+    },
     error: (errorObj = getErrorObject('NotificationEventError', 'An error while processing BTCPay notification event')) => {
       console.log(errorObj.message, errorObj)
-      res.status(500).send(errorObj)
+      if (_doUpdate === false) {
+        res.status(500).send(errorObj)
+      } else {
+        responseObject.errors.push(errorObj)
+      }
     },
     warning: (warningObject = getErrorObject('NotificationEventWarning', 'Something unhappy occurred while processing BTCPay notification event')) => {
       console.log(warningObject.message, warningObject)
-      res.status(200).send(warningObject)
+
+      if (_doUpdate === false) {
+        res.status(200).send(warningObject)
+      } else {
+        responseObject.warnings.push(warningObject)
+      }
+
     }
   }
   const updateInvoiceData = (invoiceTx) => {
@@ -433,9 +454,9 @@ app.post(CONFIG.apiVersionPrefix + '/invoiceNotificationEvent', function (req, r
         console.log(getErrorObject('ErrorSavingInvoice', 'An error occurred while saving invoice.', err))
         // res.status(500).send({message: 'Error saving transaction', error: err})
       } else {
-        console.log('Successsfully saved invoice from notification update.', invoiceTx)
-
-        res.status(200).send(invoiceTx)
+        console.log('Successsfully saved invoice from notification update.', responseObject)
+        responseObject.messages.push(invoiceTx)
+        res.status(200).send(responseObject)
       }
     })
   }
@@ -467,50 +488,50 @@ app.post(CONFIG.apiVersionPrefix + '/invoiceNotificationEvent', function (req, r
       }
 
       switch (btcpayInvoiceEventCode) {
-        case 1001:// invoice_created
-        case 1002: // invoice_receivedPayment
-        case 1003: // invoice_paidInFull
-        case 1004: // invoice_expired
-        case 1006: // invoice_completed
-        case 1010: // invoice_expiredPartial
+        case 1001://invoice_created
+        case 1002: //invoice_receivedPayment
+        case 1003: //invoice_paidInFull
+        case 1004: //invoice_expired
+        case 1006: //invoice_completed
+        case 1010: //invoice_expiredPartial
           // do nothing special
+          _doUpdate = true
           btcPayNotificationResponse.ok()
-          _doUpdateSwitch = true
           break
 
-        case 1005: // invoice_confirmed
+        case 1005: //invoice_confirmed
           // invoke eos broadcast call
+          _doUpdate = true
           btcPayNotificationResponse.ok()
-          _doUpdateSwitch = true
           break
-        case 1007: // invoice_refunded
-        case 1016: // invoice_refundComplete
+        case 1007: //invoice_refunded
+        case 1016: //invoice_refundComplete
           // TODO: confirm setup disallows refunds
+          _doUpdate = true
           btcPayNotificationResponse.ok()
-          _doUpdateSwitch = true
           break
-        case 1008: // invoice_markedInvalid
-        case 1009: // invoice_paidAfterExpiration
+        case 1008: //invoice_markedInvalid
+        case 1009: //invoice_paidAfterExpiration
           // TODO: confirm how to handle?
           btcPayNotificationResponse.warning()
           break
 
-        case 1011: // invoice_blockedByTierLimit
-        case 1012: // invoice_manuallyNotified
-        case 1013: // invoice_failedToConfirm
-        case 1014: // invoice_latePayment
-        case 1015: // invoice_adjustmentComplete
+        case 1011: //invoice_blockedByTierLimit
+        case 1012: //invoice_manuallyNotified
+        case 1013: //invoice_failedToConfirm
+        case 1014: //invoice_latePayment
+        case 1015: //invoice_adjustmentComplete
         // log error / notification
           console.log('Unhandled Invoice Event received', req.body)
+          _doUpdate = true
           btcPayNotificationResponse.warning(
             getErrorObject('InvoiceStatusIrregularity', 'Something unhappy occurred while processing BTCPay notification event.', req.body)
           )
-          _doUpdateSwitch = true
           break
 
-        case 2001: // payoutRequest_funded
-        case 2002: // payoutRequest_completed
-        case 2003: // payoutRequest_cancelled
+        case 2001: //payoutRequest_funded
+        case 2002: //payoutRequest_completed
+        case 2003: //payoutRequest_cancelled
           // Payouts are batches of bitcoin payments to employees, customers, partners, etc.
           // TODO: confirm payoutRequests cannot be invoked or are blocked by configuration
           console.log('Unhandled Payout Request Event received', req.body)
@@ -519,7 +540,7 @@ app.post(CONFIG.apiVersionPrefix + '/invoiceNotificationEvent', function (req, r
           )
           break
 
-        case 3001: // org_completedSetup
+        case 3001: //org_completedSetup
           // TODO: confirm event conditions & handle if necessary
           btcPayNotificationResponse.warning(
             getErrorObject('OrgCompletedSetupWarning', 'A BTCPay notification event for org setup complete has been received, and should probably not have been.', req.body)
@@ -533,7 +554,7 @@ app.post(CONFIG.apiVersionPrefix + '/invoiceNotificationEvent', function (req, r
           break
       }
 
-      if (_doUpdateSwitch) {
+      if (_doUpdate) {
         updateInvoiceData(invoiceTx)
       }
     }
@@ -593,30 +614,25 @@ function formatCleanupInvoiceData (invoiceTxData) {
 }
 
 function getErrorObject (errorCode, message, data) {
-  const error = {}
-
-  console.log('args: ', arguments)
-
+  const error = {};
   for (let arg in arguments) {
     const value = arguments[arg]
-    console.log('value: ', value)
     switch (true) {
       case value && value === errorCode:
-        error.errorCode = value
-        break
+      error.errorCode = value
+      break
       case value && value === message:
-        error.message = value
-        break
+      error.message = value
+      break
       case value && value === data:
-        error.data = value
-        break
+      error.data = value
+      break
       default:
-      // do nothing
-        break
+      //do nothing
+      break
     }
   }
-
-  console.log('error: ', error)
+  
   return error
 }
 
