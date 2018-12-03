@@ -1,4 +1,3 @@
-
 const fs = require('fs')
 const http = require('http')
 const https = require('https')
@@ -6,6 +5,10 @@ const btcpay = require('btcpay')
 const express = require('express')
 const bodyParser = require('body-parser')
 const nano = require('nano')
+const eosjs = require('eosjs')
+const { bns } = require('biggystring')
+const rp = require('request-promise')
+
 
 // GET /api/v1/getSupportedCurrencies
 // response =
@@ -44,7 +47,7 @@ const CONFIG = {
       // these will have to manually updated based on btcpay server config for now.
       'BTC': true,
       'LTC': false,
-      'DASH': false,
+      'DASH': true,
       'ETH': false
     },
   // invoiceNotificationEmailAddress: 'chuck@screenscholar.com',
@@ -54,7 +57,34 @@ const CONFIG = {
     'url', 'status', 'btcPrice', 'btcDue', 'cryptoInfo', 'price', 'currency', 'invoiceTime', 'expirationTime',
     'currentTime', 'lowFeeDetected', 'btcPaid', 'rate', 'exceptionStatus', 'refundAddressRequestPending', 
     'token', 'paymentSubtotals', 'paymentTotals', 'amountPaid', 'minerFees', 'exchangeRates', 'addresses'
-  ]
+  ],
+  edgytesty311PrivateKey : '5JVjaFdWPtAdeWQBSAvh31R5HMnq2Qj7fbHdroQiSjCHrk4KFCC',
+  eosjs : {
+    chainId: 'aca376f206b8fc25a6ed44dbdc66547c36c6c33e3a119ffbeaef943642f0e906', // main net
+    // httpEndpoint: 'https://api.eosnewyork.io:443', // main net
+    httpEndpoint: 'https://user-api.eoseoul.io:443', // main net - good pings in hawaii
+    expireInSeconds: 60,
+    broadcast: true,
+    debug: false,
+    sign: true
+  },
+  eosPricingRatesURL : 'https://info1.edgesecure.co:8444/v1/eosPrices',
+  eosAccountActivationStartingBalances :{
+    // totalEos = (result.ram * 8) + (result.net * 2) + (result.cpu * 10)
+    //input as strings for biggiestrings use
+    ram: '8192', //bytes
+    net: '2', //kb
+    cpu: '10' //ms
+  },
+  cryptoPricing : { //coinMarketCapConfigs
+    updateFrequencyMs : 5*60*1000,
+    apiKey : '1f0b3fbe-5f1d-4944-8347-24f9ac7c0d48',
+    rootPath:  'https://pro-api.coinmarketcap.com/v1',
+    // rootPath:  'https://sandbox-api.coinmarketcap.com/v1',
+    listings: '/cryptocurrency/listings/latest',
+    tickerQuotes: '/ticker/'
+  }
+
 }
 
 const ENV = {
@@ -64,6 +94,21 @@ const ENV = {
   serverSSLKeyFilePath: '/etc/letsencrypt/live/eos-name-api.cryptoambassador.work/privkey.pem',
   serverSSLCertFilePath: '/etc/letsencrypt/live/eos-name-api.cryptoambassador.work/fullchain.pem'
 }
+
+
+const eos = eosjs(CONFIG.eosjs)
+const { ecc, format } = eosjs.modules
+const publicKey = ecc.privateToPublic(CONFIG.edgytesty311PrivateKey)
+const currentEosSystemRates = {
+  lastUpdated: 0,
+  data: []
+}
+const currentCryptoListings = {
+  lastUpdated : 0,
+  data: []
+}
+let accountName
+
 
 /***
  *      _________________________ _________________________ _____________
@@ -88,7 +133,7 @@ try {
       console.log('WARNING: CLIENT PRIVATE KEY NOT DETECTED. REQUIRED FOR COMMUNICATION WITH BTCPAY SERVER')
     }
   })
-  console.log('READING Client private key...')
+  //console.log('READING Client private key...')
 
   fs.readFile(CONFIG.merchantPairingDataFullPath, 'utf8', (err, data) => {
     if (err) {
@@ -102,10 +147,51 @@ try {
       console.log('MERCHANT DATA: ', ENV.merchantData)
     }
   })
-  console.log('READING Client merchant code...')
+  //console.log('READING Client merchant code...')
+
+    
 } catch (e) {
   ENV.clientPrivateKey = null
 }
+
+try {
+    
+  // Promise
+  eos.getBlock(1)
+    .then(result => console.log('Get EOS Block Response: ', result))
+    .catch(error => console.error('Error in Get EOS Block Response: ', error))
+
+  queryAccountName()
+    .then( result => {
+      console.log('EOS Account Name Query Result: ', result)
+      // Promise
+      eos.getCurrencyBalance('eosio.token', result.account_names[0], 'EOS')
+        .then(result => console.log('eosio.token balance: ' , result))
+        .catch(error => console.log('Error in eosio.token balance: ' , error))
+    })
+    .catch ( error => {
+      console.log('Error in EOS Account Name Query Result: ', error)
+    })
+} catch (e) {
+  throw new Error('Error in EOS startup checks: ' , e)
+}
+
+// PRICING
+try {
+  //testing pricing
+  getLatestEosActivationPriceInSelectedCryptoCurrency('BTC')
+    .then( result => {
+      console.log( 'getLatestEosActivationPriceInSelectedCryptoCurrency.result : ', result )
+    })
+    .catch( error => {
+      console.log( )
+      throw new Error('ERROR in getLatestEosActivationPriceInSelectedCryptoCurrency() : ', error )
+    })
+} catch (e) {
+  throw ('Error in PRICING startup calls: ' , e)
+}
+
+  
 /***
  *                                    _____
  *      ____ _____    ____   ____   _/ ____\___________
@@ -257,7 +343,7 @@ app.get(CONFIG.apiVersionPrefix + '/rates/:baseCurrency?/:currency?', function (
 
   client.get_rates(`${baseCurrency}_${currency}`, CONFIG.btcpayStoreId)
     .then((rates) => {
-      console.log(rates)
+      //console.log(rates)
       res.status(200).send({message: 'Rates response', rates: rates})
     })
     .catch((err) => {
@@ -275,9 +361,10 @@ app.post(CONFIG.apiVersionPrefix + '/activateAccount', function (req, res) {
   const body = req.body
   const errors = []
   // expectedParams
-  const bodyParams = ['currencyCode', 'ownerPublicKey', 'activePublicKey']
+  const bodyParams = ['currencyCode','requestedAccountName','ownerPublicKey', 'activePublicKey']
 
   let requestedPaymentCurrency = ''
+  let requestedAccountName = ''
   let invoiceTx = {}
 
   const validations = [
@@ -289,7 +376,7 @@ app.post(CONFIG.apiVersionPrefix + '/activateAccount', function (req, res) {
           if (body.hasOwnProperty(param) && typeof body[param] !== 'undefined' && body[param] && body[param].length > 0 && typeof (body[param]) === 'string') {
             switch (param) {
               case 'currencyCode':
-              // console.log (`currency code requested : ${body[param]}` )
+              console.log (`currency code requested : ${body[param]}` )
                 if (isSupportedCurrency(body[param]) === false) {
                   errors.push(
                     getErrorObject(
@@ -302,6 +389,31 @@ app.post(CONFIG.apiVersionPrefix + '/activateAccount', function (req, res) {
                   requestedPaymentCurrency = body[param]
                 }
                 break
+                case 'requestedAccountName':
+                  try {
+                    format.encodeName(body[param])
+                    requestedAccountName = body[param]
+                  } catch (e) {
+                    errors.push(
+                      getErrorObject(
+                        `InvalidAccountNameFormat`,
+                        `The requested account name "'${body[param]}'" appears to be invalid.`,
+                        e
+                      )
+                    )
+                  }
+                break;
+                case 'ownerPublicKey':
+                case 'activePublicKey':
+                  if (ecc.isValidPublic(body[param]) !== true) {
+                    errors.push(
+                      getErrorObject(
+                        `InvalidEosKeyFormat`,
+                        `The key provided "'${body[param]}'" appears to be invalid.`
+                      )
+                    )
+                  } 
+                  break
             }
           } else {
             errors.push(
@@ -324,36 +436,33 @@ app.post(CONFIG.apiVersionPrefix + '/activateAccount', function (req, res) {
   ]
 
   validations.forEach((valFn, i) => {
-    console.log(`validation ${i}`)
+    //console.log(`validation ${i}`)
     valFn()
   })
 
   if (errors.length > 0) {
     res.status(500).send(errors)
   } else {
-    // createInvoice for payment & setup watcher
-    const client = getBtcPayClient()
-    client.create_invoice({
-      price: 0.01,
-      currency: 'USD',
-      notificationEmail: CONFIG.invoiceNotificationEmailAddress || null,
-      notificationURL: CONFIG.invoiceNotificationURL || null,
-      extendedNotifications: true,
-      physical: false
-      // buyer : {
-      //   name: {
-      //     ownerPublicKey : body.ownerPublicKey,
-      //     activePublicKey : body.activePublicKey
-      //   }
-      // }
 
-    })
+    // get latest pricing for invoice 
+    getLatestEosActivationPriceInSelectedCryptoCurrency(requestedPaymentCurrency).then ( eosActivationFeeInSelectedCryptoUSD => {
+      // createInvoice for payment & setup watcher
+      const client = getBtcPayClient()
+      client.create_invoice({
+        price: eosActivationFeeInSelectedCryptoUSD,
+        currency: 'USD',
+        notificationEmail: CONFIG.invoiceNotificationEmailAddress || null,
+        notificationURL: CONFIG.invoiceNotificationURL || null,
+        extendedNotifications: true,
+        physical: false
+      })
       .then((invoice) => {
         console.log('invoice: ', invoice)
-
+  
         invoiceTx = formatCleanupInvoiceData(invoice)
-
+  
         invoiceTx._id = invoice.id
+        invoiceTx.requestedAccountName = body.requestedAccountName
         invoiceTx.ownerPublicKey = body.ownerPublicKey
         invoiceTx.activePublicKey = body.activePublicKey
         invoiceTx.eventStatusHistory = [{
@@ -361,11 +470,15 @@ app.post(CONFIG.apiVersionPrefix + '/activateAccount', function (req, res) {
           status: invoiceTx.status,
           event: null
         }]
-
+        invoiceTx.quotedEosRates = {
+          eosFees : currentEosSystemRates.data,
+          eosActivationFeeInUSD : eosActivationFeeInSelectedCryptoUSD
+        } 
+  
         // invoiceTx._rev = _rev
         invoiceTxDb.insert(invoiceTx, (err, insertResult) => {
           if (err) {
-            console.log()
+            //console.log()
             res.status(500).send({message: 'Error saving transaction', error: err})
           } else {
             res.status(200).send(
@@ -378,33 +491,18 @@ app.post(CONFIG.apiVersionPrefix + '/activateAccount', function (req, res) {
               })
           }
         })
-
-        // res.status(200).send(
-        //   {
-        //       "paymentAddress": "1z098faoi3rjoawiejfiuawefilawhefj",
-        //       "expireTime": 1102345678, // Epoch time in seconds
-        //       "amount": "0.000123"
-        //   }
-        // )
       })
-      .catch(
-        (err) => {
-          console.log('Error creating invoice:', err)
-          res.status(500).send({message: 'error creating invoice', error: err})
-        })
+      .catch((err) => {
+        console.log('Error creating invoice:', err)
+        res.status(500).send({message: 'error creating invoice', error: err})
+      })
+    })
 
     // once invoice is paid (on notification? Will btcpay notify URL)- send EOS payment command
 
     // eos.createAccountPackage('ownerPubKey', 'activePubKey', 'accountName', bytes, stake_net_quantity, stake_cpu_quantity, transfer)
   }
 
-// POST /api/v1/activateAccount
-// body =
-// {
-//     "currencyCode": "BTC",
-//     "ownerPublicKey": "aofijf2039faoiruaowefj",
-//     "activePublicKey": "98f23hriualhliauwheifluhaef"
-// }
 })
 
 app.post(CONFIG.apiVersionPrefix + '/invoiceNotificationEvent', function (req, res) {
@@ -454,14 +552,14 @@ app.post(CONFIG.apiVersionPrefix + '/invoiceNotificationEvent', function (req, r
         console.log(getErrorObject('ErrorSavingInvoice', 'An error occurred while saving invoice.', err))
         // res.status(500).send({message: 'Error saving transaction', error: err})
       } else {
-        console.log('Successsfully saved invoice from notification update.', responseObject)
+        //console.log('Successsfully saved invoice from notification update.', responseObject)
         responseObject.messages.push(invoiceTx)
         res.status(200).send(responseObject)
       }
     })
   }
 
-  console.log('invoiceEventData: ', invoiceEventData)
+  //console.log('invoiceEventData: ', invoiceEventData)
 
   invoiceTxDb.get(invoiceId, (err, invoiceData) => {
     if (err) {
@@ -502,7 +600,14 @@ app.post(CONFIG.apiVersionPrefix + '/invoiceNotificationEvent', function (req, r
         case 1005: //invoice_confirmed
           // invoke eos broadcast call
           _doUpdate = true
-          btcPayNotificationResponse.ok()
+
+          eosAccountCreateAndBuyBw(requestedAccountName, invoiceData.ownerPublicKey, invoiceData.activePublicKey)
+            .then( result => { 
+              btcPayNotificationResponse.ok()
+            })
+            .catch( error => {
+              btcPayNotificationResponse.error(getErrorObject( 'FailureInEosTxBroadcast', 'Something went wrong while broadcasting EOS transaction to network', error))
+            })
           break
         case 1007: //invoice_refunded
         case 1016: //invoice_refundComplete
@@ -578,6 +683,79 @@ httpsServer.listen(443, () => {
  *           \/        \/         \/                \/         \/        \/
  */
 
+async function queryAccountName () {
+  // ///////////////////////////////////////////////////
+  // Query for account name
+
+  console.log(`publicKey: ${publicKey}`)
+  const accounts = await new Promise((resolve, reject) => {
+    eos.getKeyAccounts(publicKey, (error, result) => {
+      if (error) reject(error)
+      resolve(result)
+    })
+  })
+
+  if (accounts.account_names && accounts.account_names.length > 0) {
+    accountName = accounts.account_names[0]
+  }
+  console.log(`accountName: ${accountName}`)
+
+  return accounts
+}
+
+async function getEosPrices() {
+  console.log('getEosPrices()')
+
+  https.get(CONFIG.eosPricingRatesURL, (res) => {
+    console.log('getEosPrices.response:', res)
+    res.on('data', (d) => {
+      console.log('getEosPrices.response.data:', d)
+      process.stdout.write(d);
+    })
+  }).on('error', (e) => {
+    console.error(e);
+  })
+}
+
+async function eosAccountCreateAndBuyBw (newAccountName, ownerPubKey, activePubKey, net = CONFIG.eosAccountActivationStartingBalances.net, cpu = CONFIG.eosAccountActivationStartingBalances.cpu, ram = Number(CONFIG.eosAccountActivationStartingBalances.ram) || 8192) {
+  // ///////////////////////////////////////////////////
+  // Buy CPU and RAM
+  console.log('eosAccountCreateAndBuyBw')
+
+  return await eos.transaction(tr => {
+
+    const eosPricingResponse = currentEosSystemRates.data;
+
+    tr.newaccount({
+      creator: accountName,
+      name: newAccountName,
+      owner: pubKey,  // <------ the public key the of the new user account that was generate by a wallet tool or the eosjs-keygen
+      active: pubKey  
+    })
+
+    tr.delegatebw({
+      from: accountName,
+      // receiver: 'edgytestey43',
+      receiver: newAccountName,
+      stake_net_quantity: `${bns.mul(eosPricingResponse.net , net)} EOS`,
+      stake_cpu_quantity: `${bns.mul(eosPricingResponse.cpu , cpu)} EOS`,
+      transfer: 0
+    })
+
+    tr.buyrambytes({
+      payer: accountName,
+      receiver: newAccountName ,
+      bytes: ram
+    })
+  },
+  {
+    sign: true,
+    broadcast: true,
+    keyProvider: [CONFIG.edgytesty311PrivateKey]
+  })
+}
+
+
 function getBtcPayClient () {
   const keypair = btcpay.crypto.load_keypair(Buffer.from(ENV.clientPrivateKey, 'utf8'))
   const client = new btcpay.BTCPayClient('https://' + CONFIG.btcpayServerHostName, keypair, ENV.merchantData ? ENV.merchantData : null)
@@ -608,7 +786,7 @@ function formatCleanupInvoiceData (invoiceTxData) {
     }
   })
 
-  console.log('_formatCleanupInvoiceData()', _returnObj)
+  //console.log('_formatCleanupInvoiceData()', _returnObj)
 
   return _returnObj
 }
@@ -637,7 +815,7 @@ function getErrorObject (errorCode, message, data) {
 }
 
 function isSupportedCurrency (currencyCode) {
-  console.log(`isSupportedCurrency() ${currencyCode}`, currencyCode, typeof (currencyCode), CONFIG.supportedCurrencies.hasOwnProperty(currencyCode))
+  //console.log(`isSupportedCurrency() ${currencyCode}`, currencyCode, typeof (currencyCode), CONFIG.supportedCurrencies.hasOwnProperty(currencyCode))
   let _returnVal = false
 
   _returnVal = !!(currencyCode &&
@@ -645,6 +823,144 @@ function isSupportedCurrency (currencyCode) {
   CONFIG.supportedCurrencies.hasOwnProperty(currencyCode) &&
   CONFIG.supportedCurrencies[currencyCode])
 
-  console.log(`isSupportedCurrency() : ${_returnVal}`)
+  //console.log(`isSupportedCurrency() : ${_returnVal}`)
   return _returnVal
+}
+
+async function getLatestEosActivationPriceInSelectedCryptoCurrency (selectedCurrencyCode){
+  //updateCryptoPricing
+
+  const _getLatest = await new Promise( (resolve,reject) => {
+    updateCryptoPrices()
+      .then( (cryptoPricing) => {
+        console.log( 'getLatestEosActivationPriceInSelectedCryptoCurrency().cryptoPricing: ' , cryptoPricing)
+        
+        getEosActivationFee().then( eosActivationFee => {
+          valuesInUSD = cryptoPricing.data
+          .filter( (crypto) => {
+            return crypto.symbol === selectedCurrencyCode || crypto.symbol === 'EOS'
+          })
+          .map( (crypto) => {
+            console.log({ [`${crypto.symbol}_USD`] : crypto.quote.USD.price.toString() })
+            return { [`${crypto.symbol}_USD`] : crypto.quote.USD.price.toString() }
+          })
+          
+          console.log('valuesInUSD: ', valuesInUSD)
+
+          const eosActivationFeeInUSD = bns.mul(eosActivationFee, valuesInUSD.filter( element => element.EOS_USD ? true : false)[0].EOS_USD )
+          const eosActivationFeeInSelectedCurrencyCode = bns.div(valuesInUSD.filter(element => element.EOS_USD ? true : false)[0].EOS_USD, valuesInUSD.filter( element => element[`${selectedCurrencyCode}_USD`] ? true : false)[0][`${selectedCurrencyCode}_USD`],10,12)
+
+          console.log('eosActivationFee: ', eosActivationFee)
+          console.log('eosActivationFee in USD: ', eosActivationFeeInUSD)
+          console.log(`calculated eosActivationFee in : ${selectedCurrencyCode}: `, eosActivationFeeInSelectedCurrencyCode)
+
+          resolve (eosActivationFeeInUSD)
+        })
+        .catch ( error => {
+          console.log( 'getEosActivationFee().error: ' , error)
+          reject(error)
+        })
+      })
+      .catch( (error) => {
+        console.log( 'getLatestEosActivationPriceInSelectedCryptoCurrency().error: ' , error)
+        reject(error)
+      })
+  })
+
+  return _getLatest
+}
+
+async function getEosActivationFee () {
+  const getFee = await new Promise ( (resolve, reject) => {
+    updateEosRates()
+      .then( eosRates => {  
+        const eosPricingResponse = eosRates.data;
+
+        const totalEos = bns.add(
+          bns.add(
+            bns.mul(eosPricingResponse.ram , bns.div(CONFIG.eosAccountActivationStartingBalances.ram,'1000',10,3)),
+            bns.mul(eosPricingResponse.net , CONFIG.eosAccountActivationStartingBalances.net)
+            ),
+            bns.mul(eosPricingResponse.cpu,CONFIG.eosAccountActivationStartingBalances.cpu)
+            )
+
+        console.log(`totalEos: ${totalEos}`)
+            
+        resolve(totalEos)
+      })
+      .catch ( error => console.log('Error in getEosActivationFee()', error))
+  })
+
+  return getFee
+}
+
+async function updateEosRates () {
+  const doUpdate = await new Promise((resolve, reject) => {
+    let now = new Date()
+    if  (now.getTime() - currentEosSystemRates.lastUpdated >= CONFIG.cryptoPricing.updateFrequencyMs ) {
+      const requestOptions = {
+        method: 'GET',
+        uri: CONFIG.eosPricingRatesURL,
+        json: true,
+        gzip: true
+      }
+      
+      rp(requestOptions).then(eosPricingResponse => {
+        now = new Date()
+        console.log('eosPricingResponse: ' ,eosPricingResponse)
+        
+        currentEosSystemRates.lastUpdated = now.getTime()
+        currentEosSystemRates.data = eosPricingResponse
+
+        resolve(currentEosSystemRates)
+      }).catch(error => {
+        console.log('Error in eos pricing: ' , error)
+        reject(error)
+      })
+    } else {
+      resolve(currentEosSystemRates)
+    }
+  })
+
+  return doUpdate
+}
+
+async function updateCryptoPrices () {
+  const doUpdate = await new Promise((resolve, reject) => {
+    let now = new Date()
+    if  (now.getTime() - currentCryptoListings.lastUpdated >= CONFIG.cryptoPricing.updateFrequencyMs ) {
+      const requestOptions = {
+        method: 'GET',
+        uri: CONFIG.cryptoPricing.rootPath+CONFIG.cryptoPricing.listings,
+        qs: {
+          start: 1,
+          limit: 25,
+          convert: 'USD'
+        },
+        headers: {
+          'X-CMC_PRO_API_KEY': CONFIG.cryptoPricing.apiKey
+        },
+        json: true,
+        gzip: true
+      }
+    
+      rp(requestOptions).then(response => {
+        // console.log('API call response:', response)
+        now = new Date()
+        
+        currentCryptoListings.lastUpdated = now.getTime()
+        currentCryptoListings.data = response.data
+  
+        // console.log('currentCryptoListings:', currentCryptoListings)
+ 
+        resolve(currentCryptoListings)
+      }).catch((err) => {
+        console.log('API call error:', err.message, requestOptions)
+        reject(err)
+      })
+    } else {
+      resolve(currentCryptoListings)
+    }
+  })
+  return doUpdate
 }
