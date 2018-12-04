@@ -601,7 +601,7 @@ app.post(CONFIG.apiVersionPrefix + '/invoiceNotificationEvent', function (req, r
           // invoke eos broadcast call
           _doUpdate = true
 
-          eosAccountCreateAndBuyBw(requestedAccountName, invoiceData.ownerPublicKey, invoiceData.activePublicKey)
+          eosAccountCreateAndBuyBw(invoiceData.requestedAccountName, invoiceData.ownerPublicKey, invoiceData.activePublicKey)
             .then( result => { 
               btcPayNotificationResponse.ok()
             })
@@ -729,8 +729,8 @@ async function eosAccountCreateAndBuyBw (newAccountName, ownerPubKey, activePubK
     tr.newaccount({
       creator: accountName,
       name: newAccountName,
-      owner: pubKey,  // <------ the public key the of the new user account that was generate by a wallet tool or the eosjs-keygen
-      active: pubKey  
+      owner: ownerPubKey,  // <------ the public key the of the new user account that was generate by a wallet tool or the eosjs-keygen
+      active: activePubKey  
     })
 
     tr.delegatebw({
