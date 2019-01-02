@@ -36,19 +36,21 @@ const fetch = require('node-fetch')
 // }
 
 const CONFIG = {
-  btcpayServerHostName: 'btcpay.cryptosystemsadvisor.com',
+  // btcpayServerHostName: 'btcpay.cryptosystemsadvisor.com',
+  btcpayServerHostName: 'btcpay-amp.cryptosystemsadvisor.com',
   apiPublicDisplayName: 'Edge EOS Name Registration and Payment restful API',
   apiVersionPrefix: '/api/v1',
   clientPrivateKeyFullPath: './config/btcpay_client_private.key',
   merchantPairingDataFullPath: './config/btcpay_client_merchant_paring.data',
-  btcpayStoreId: '3FhSZKuG8jcFbb4X4LtA3hKry3zbZeesHEchGsJ6xueK',
-  oneTimePairingCode: 'xaWTkvT', // get this On BTCPay Server > Stores > Settings > Access Tokens > Create a new token, (leave PublicKey blank) > Request pairing
+  // btcpayStoreId: '3FhSZKuG8jcFbb4X4LtA3hKry3zbZeesHEchGsJ6xueK',
+  btcpayStoreId: '29R5nq3jHuYYSYZvhkHmpFrtPuZmhgivGLwTTwTsZ5We',
+  oneTimePairingCode: 'wyC4GGJ', // get this On BTCPay Server > Stores > Settings > Access Tokens > Create a new token, (leave PublicKey blank) > Request pairing
   supportedCurrencies:
     {
       // these will have to manually updated based on btcpay server config for now.
       'BTC': true,
-      'LTC': false,
-      'DASH': true,
+      'LTC': true,
+      'DASH': false,
       'ETH': false
     },
   // invoiceNotificationEmailAddress: 'chuck@screenscholar.com',
@@ -56,10 +58,11 @@ const CONFIG = {
   dbFullpath: 'http://admin:admin@localhost:5984',
   btcPayInvoicePropsToSave: [
     'url', 'status', 'btcPrice', 'btcDue', 'cryptoInfo', 'price', 'currency', 'invoiceTime', 'expirationTime',
-    'currentTime', 'lowFeeDetected', 'btcPaid', 'rate', 'exceptionStatus', 'refundAddressRequestPending', 
-    'token', 'paymentSubtotals', 'paymentTotals', 'amountPaid', 'minerFees', 'exchangeRates', 'addresses'
+    'currentTime', 'lowFeeDetected', 'rate', 'exceptionStatus', 'refundAddressRequestPending', 
+    'token', 'paymentSubtotals', 'paymentTotals', 'amountPaid', 'minerFees', 'addresses'
   ],
-  edgytesty311PrivateKey : '5JVjaFdWPtAdeWQBSAvh31R5HMnq2Qj7fbHdroQiSjCHrk4KFCC', // testing 
+  eosCreatorAccountPrivateKey : fs.readFileSync('../config/eos_creator_account_private.key'),
+  // eosCreatorAccountPrivateKey : '5JVjaFdWPtAdeWQBSAvh31R5HMnq2Qj7fbHdroQiSjCHrk4KFCC', // testing 
   eosjs : {
     chainId: 'aca376f206b8fc25a6ed44dbdc66547c36c6c33e3a119ffbeaef943642f0e906', // main net
     // httpEndpoint: 'https://api.eosnewyork.io:443', // main net
@@ -100,7 +103,7 @@ const ENV = {
 const eos = eosjs(CONFIG.eosjs)
 const { ecc, format } = eosjs.modules
 
-const publicKey = ecc.privateToPublic(CONFIG.edgytesty311PrivateKey)
+const publicKey = ecc.privateToPublic(CONFIG.eosCreatorAccountPrivateKey)
 const currentEosSystemRates = {
   lastUpdated: 0,
   data: []
@@ -493,13 +496,18 @@ app.post(CONFIG.apiVersionPrefix + '/activateAccount', function (req, res) {
             //console.log()
             res.status(500).send({message: 'Error saving transaction', error: err})
           } else {
+
+            let { totalDue, rate } = invoiceTx.cryptoInfo.filter( cryptoData => {
+              return cryptoData.cryptoCode === requestedPaymentCurrency
+            })[0]
+
             res.status(200).send(
               {
                 currencyCode: requestedPaymentCurrency,
                 paymentAddress: invoiceTx.addresses && invoiceTx.addresses[requestedPaymentCurrency],
                 expireTime: invoiceTx.expirationTime,
-                amount: invoiceTx.cryptoInfo[0].totalDue,
-                rate: invoiceTx.cryptoInfo[0].rate
+                amount: totalDue,
+                rate: rate
               })
           }
         })
@@ -607,6 +615,7 @@ app.post(CONFIG.apiVersionPrefix + '/invoiceNotificationEvent', function (req, r
           // do nothing special
           _doUpdate = true
           btcPayNotificationResponse.ok()
+
           break
 
         case 1005: //invoice_confirmed
@@ -754,7 +763,7 @@ async function eosAccountCreateAndBuyBw (newAccountName, ownerPubKey, activePubK
   {
     sign: true,
     broadcast: true,
-    keyProvider: [CONFIG.edgytesty311PrivateKey]
+    keyProvider: [CONFIG.eosCreatorAccountPrivateKey]
   })
 }
 
