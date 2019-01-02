@@ -36,34 +36,37 @@ const fetch = require('node-fetch')
 // }
 
 const CONFIG = {
-  btcpayServerHostName: 'btcpay.cryptosystemsadvisor.com',
+  btcpayServerHostName: 'btcpay135208.lndyn.com',
   apiPublicDisplayName: 'Edge EOS Name Registration and Payment restful API',
   apiVersionPrefix: '/api/v1',
   clientPrivateKeyFullPath: './config/btcpay_client_private.key',
   merchantPairingDataFullPath: './config/btcpay_client_merchant_paring.data',
-  btcpayStoreId: '3FhSZKuG8jcFbb4X4LtA3hKry3zbZeesHEchGsJ6xueK',
-  oneTimePairingCode: 'xaWTkvT', // get this On BTCPay Server > Stores > Settings > Access Tokens > Create a new token, (leave PublicKey blank) > Request pairing
+  btcpayStoreId: '59izNSB9ws3DdwFkc5jGSj6mZPJMKbN6pSie2SGVGkSs',
+  oneTimePairingCode: 'tMnNcLt', // get this On BTCPay Server > Stores > Settings > Access Tokens > Create a new token, (leave PublicKey blank) > Request pairing
   supportedCurrencies:
     {
       // these will have to manually updated based on btcpay server config for now.
       'BTC': true,
-      'LTC': false,
-      'DASH': true,
+      'LTC': true,
+      'DOGE': true,
+      'DASH': false,
       'ETH': false
     },
   // invoiceNotificationEmailAddress: 'chuck@screenscholar.com',
-  invoiceNotificationURL: 'https://eos-name-api.cryptoambassador.work/api/v1/invoiceNotificationEvent/',
-  dbFullpath: 'http://admin:admin@localhost:5984',
+  invoiceNotificationURL: 'https://eos-pay-sf2.edgesecure.co/api/v1/invoiceNotificationEvent/',
+  dbFullpath: 'http://admin:wqa9eJ8HnH@localhost:5984',
   btcPayInvoicePropsToSave: [
     'url', 'status', 'btcPrice', 'btcDue', 'cryptoInfo', 'price', 'currency', 'invoiceTime', 'expirationTime',
     'currentTime', 'lowFeeDetected', 'btcPaid', 'rate', 'exceptionStatus', 'refundAddressRequestPending', 
     'token', 'paymentSubtotals', 'paymentTotals', 'amountPaid', 'minerFees', 'exchangeRates', 'addresses'
   ],
-  edgytesty311PrivateKey : '5JVjaFdWPtAdeWQBSAvh31R5HMnq2Qj7fbHdroQiSjCHrk4KFCC', // testing 
+  edgeCreatorPrivateKey : '5Jy468pcrxUm6zW1iwAEZRuinnm5NwQ4etGx9T6CXbs8K4FwWca', // testing 
   eosjs : {
     chainId: 'aca376f206b8fc25a6ed44dbdc66547c36c6c33e3a119ffbeaef943642f0e906', // main net
+    //endpoint list available here: https://www.eosdocs.io/resources/apiendpoints/
     // httpEndpoint: 'https://api.eosnewyork.io:443', // main net
-    httpEndpoint: 'https://user-api.eoseoul.io:443', // main net - good pings in hawaii
+    // httpEndpoint: 'https://user-api.eoseoul.io:443', // main net - good pings in hawaii
+    httpEndpoint: 'https://proxy.eosnode.tools', // proxy - no port
     expireInSeconds: 60,
     broadcast: true,
     debug: false,
@@ -92,15 +95,15 @@ const ENV = {
   clientPrivateKey: null,
   merchantData: null,
   port: process.env.PORT || 3000,
-  serverSSLKeyFilePath: '/etc/letsencrypt/live/eos-name-api.cryptoambassador.work/privkey.pem',
-  serverSSLCertFilePath: '/etc/letsencrypt/live/eos-name-api.cryptoambassador.work/fullchain.pem'
+  serverSSLKeyFilePath: '/etc/ssl/wildcard/edgesecure_co.key',
+  serverSSLCertFilePath: '/etc/ssl/wildcard/edgesecure_co.crt'
 }
 
 
 const eos = eosjs(CONFIG.eosjs)
 const { ecc, format } = eosjs.modules
 
-const publicKey = ecc.privateToPublic(CONFIG.edgytesty311PrivateKey)
+const publicKey = ecc.privateToPublic(CONFIG.edgeCreatorPrivateKey)
 const currentEosSystemRates = {
   lastUpdated: 0,
   data: []
@@ -218,6 +221,7 @@ try {
  *     \___  >____/|____/  \___  >___|  /\____ |  |___  /
  *         \/                  \/     \/      \/      \/
  */
+
 
 const nanoDb = nano(CONFIG.dbFullpath)
 const invoiceTxDb = nanoDb.db.use('invoice_tx')
@@ -754,7 +758,7 @@ async function eosAccountCreateAndBuyBw (newAccountName, ownerPubKey, activePubK
   {
     sign: true,
     broadcast: true,
-    keyProvider: [CONFIG.edgytesty311PrivateKey]
+    keyProvider: [CONFIG.edgeCreatorPrivateKey]
   })
 }
 
