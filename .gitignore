@@ -3,7 +3,7 @@ node_modules/
 lib/
 dist/
 test/
-config/**.*
+config/
 serverConfig.json
 .envconfig
 
