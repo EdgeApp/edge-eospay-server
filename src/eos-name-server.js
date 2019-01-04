@@ -48,7 +48,8 @@ const CONFIG = {
       // these will have to manually updated based on btcpay server config for now.
       'BTC': true,
       'LTC': true,
-      'DOGE': true,
+      'FTC': true,
+      'DOGE': false,
       'DASH': false,
       'ETH': false
     },
@@ -60,8 +61,8 @@ const CONFIG = {
     'currentTime', 'lowFeeDetected', 'rate', 'exceptionStatus', 'refundAddressRequestPending', 
     'token', 'paymentSubtotals', 'paymentTotals', 'amountPaid', 'minerFees', 'addresses'
   ],
-  eosCreatorAccountPrivateKey : fs.readFileSync('../config/eos_creator_account_private.key'),
-  // eosCreatorAccountPrivateKey : '5JVjaFdWPtAdeWQBSAvh31R5HMnq2Qj7fbHdroQiSjCHrk4KFCC', // testing 
+  // eosCreatorAccountPrivateKey : fs.readFileSync('config/eos_creator_account_private.key'),
+  eosCreatorAccountPrivateKey : '5Jy468pcrxUm6zW1iwAEZRuinnm5NwQ4etGx9T6CXbs8K4FwWca', // testing 
   eosjs : {
     chainId: 'aca376f206b8fc25a6ed44dbdc66547c36c6c33e3a119ffbeaef943642f0e906', // main net
     //endpoint list available here: https://www.eosdocs.io/resources/apiendpoints/
@@ -88,16 +89,16 @@ const CONFIG = {
     // rootPath:  'https://sandbox-api.coinmarketcap.com/v1',
     listings: '/cryptocurrency/listings/latest',
     tickerQuotes: '/ticker/'
-  }
-
+  },
+  serverSSLKeyFilePath: '/etc/ssl/wildcard/edgesecure_co.key',
+  serverSSLCertFilePath: '/etc/ssl/wildcard/edgesecure_co.crt',
+  serverSSLCaCertFilePath: '/etc/ssl/wildcard/edgesecure_co.ca',
 }
 
 const ENV = {
   clientPrivateKey: null,
   merchantData: null,
-  port: process.env.PORT || 3000,
-  serverSSLKeyFilePath: '/etc/ssl/wildcard/edgesecure_co.key',
-  serverSSLCertFilePath: '/etc/ssl/wildcard/edgesecure_co.crt'
+  port: process.env.PORT || 3000
 }
 
 
@@ -159,6 +160,8 @@ try {
 } catch (e) {
   ENV.clientPrivateKey = null
 }
+
+
 
 try {
     
@@ -257,9 +260,16 @@ try {
 // =============================================================================
 
 const app = express()
-const credentials = {
-  cert: fs.readFileSync(ENV.serverSSLCertFilePath),
-  key: fs.readFileSync(ENV.serverSSLKeyFilePath)
+let credentials = {}
+
+try {
+  credentials = {
+    key: fs.readFileSync(CONFIG.serverSSLKeyFilePath, 'utf8'),
+    cert: fs.readFileSync(CONFIG.serverSSLCertFilePath, 'utf8'),
+    ca: fs.readFileSync(CONFIG.serverSSLCaCertFilePath, 'utf8')
+  }
+} catch (e) {
+  console.log("Error reading server SSL data:" ,e)
 }
 app.use(bodyParser.json())
 app.use(bodyParser.urlencoded({ extended: true }))
@@ -498,6 +508,8 @@ app.post(CONFIG.apiVersionPrefix + '/activateAccount', function (req, res) {
             //console.log()
             res.status(500).send({message: 'Error saving transaction', error: err})
           } else {
+
+            console.log('invoiceTx.cryptoInfo: ', invoiceTx.cryptoInfo)
 
             let { totalDue, rate } = invoiceTx.cryptoInfo.filter( cryptoData => {
               return cryptoData.cryptoCode === requestedPaymentCurrency
@@ -847,7 +859,7 @@ async function getLatestEosActivationPriceInSelectedCryptoCurrency (selectedCurr
   const _getLatest = await new Promise( (resolve,reject) => {
     updateCryptoPrices()
       .then( (cryptoPricing) => {
-        console.log( 'getLatestEosActivationPriceInSelectedCryptoCurrency().cryptoPricing: ' , cryptoPricing)
+        console.log(`getLatestEosActivationPriceInSelectedCryptoCurrency().cryptoPricing received ${cryptoPricing.data.length} cryptos` )
         
         getEosActivationFee().then( eosActivationFee => {
           const valuesInUSD = cryptoPricing.data
