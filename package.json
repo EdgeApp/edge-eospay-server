@@ -63,8 +63,8 @@
   "scripts": {
     "flow": "flow",
     "lint2": "standard --parser babel-eslint --plugin flowtype src/**/*.js",
-    "lint:fix": "standard '*.js' 'src/**/*.js' 'testsrc/**/*.js' --fix",
-    "lint": "standard '*.js' 'src/**/*.js' 'testsrc/**/*.js' && npm run flow",
+    "lint:fix": "standard '*.js' 'src/**/*.js' --fix",
+    "lint": "standard '*.js' 'src/**/*.js' && npm run flow",
     "test": "npm run lint && mocha",
     "precommit": "npm run lint",
     "start": "node src/eos-name-server.js",
