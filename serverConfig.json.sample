@@ -34,8 +34,11 @@
   "eosPricingRatesURL" : "https://info1.edgesecure.co:8444/v1/eosPrices",
   "eosAccountActivationStartingBalances" :{
     "ram": "8192",
-    "net": "2", 
-    "cpu": "10" 
+    "net": "4", 
+    "cpu": "20",
+    "minimumRamEOSStake": "0.1",
+    "minimumNetEOSStake": "0.1",
+    "minimumCpuEOSStake": "0.1"
   },
   "cryptoPricing" : {
     "updateFrequencyMs" : 300000,

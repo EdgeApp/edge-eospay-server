@@ -14,8 +14,9 @@ const CONFIG = JSON.parse(fs.readFileSync('./config/serverConfig.json', 'utf8'))
 const ENV = {
   clientPrivateKey: null,
   merchantData: null,
-  port: process.env.PORT || 3000
+  port: process.env.PORT || 80
 }
+
 
 const eos = eosjs(CONFIG.eosjs)
 const { ecc, format } = eosjs.modules
@@ -231,6 +232,8 @@ app.get(CONFIG.apiVersionPrefix + '/pairClientWithServer', function (req, res) {
   // to manually approve a pairing code (only needed once per client) for btcpay server visit: https://<your.btcpay.server.instance>/api-access-request?pairingCode=<your pairing code>
   // also see : https://github.com/btcpayserver/node-btcpay#Pairing
 
+  let client
+  console.log('pairClientWithServer()')
   const writeCallback = (err, data) => {
     if (err) {
       console.log('Error in pairing and saving merchant code.', err)
@@ -246,14 +249,16 @@ app.get(CONFIG.apiVersionPrefix + '/pairClientWithServer', function (req, res) {
     }
   }
 
-  const client = getBtcPayClient()
 
-  client
+  try {
+    client = getBtcPayClient()
+    client
     .pair_client(CONFIG.oneTimePairingCode) // get this On BTCPay Server > Stores > Settings > Access Tokens > Create a new token, (leave PublicKey blank) > Request pairing
     .then((pairResponse) => {
+      console.log('pairResponse: ' ,pairResponse)
       if (pairResponse.merchant) {
         const pairResponseBuffer = Buffer.from(JSON.stringify(pairResponse))
-
+        
         fs.writeFile(CONFIG.merchantPairingDataFullPath, pairResponseBuffer, {encoding: 'hex', flag: 'wx'}, writeCallback)
         console.log('MERCHANT CODE:' + pairResponse.merchant)
         ENV.merchantData = pairResponse.merchant
@@ -262,11 +267,17 @@ app.get(CONFIG.apiVersionPrefix + '/pairClientWithServer', function (req, res) {
           merchantCode: pairResponse.merchant
         })
       } else {
-        res.status(500).send({message: 'Error in btc pairing request'})
+        res.status(500).send({message: `Error while pairing client to BTCPay server at "${CONFIG.btcpayServerHostName}". Check BTCPay server configs, and make sure BTCPay server is up and running.`})
       }
     })
+    .catch((e)=>{
+      res.status(500).send({message: `Error while pairing client to BTCPay server at "${CONFIG.btcpayServerHostName}". Check BTCPay server configs, and make sure BTCPay server is up and running.`, e})
+    })
+  } catch (e) {
+    res.status(500).send({message:`Error while pairing client to BTCPay server at "${CONFIG.btcpayServerHostName}". Check BTCPay server configs, and make sure BTCPay server is up and running.`, e})
+  }
 })
-
+  
 app.get(CONFIG.apiVersionPrefix + '/rates/:baseCurrency?/:currency?', function (req, res) {
   const baseCurrency = req.params.baseCurrency || 'BTC'
   const currency = req.params.currency || 'USD'
@@ -321,6 +332,15 @@ app.post(CONFIG.apiVersionPrefix + '/activateAccount', function (req, res) {
                 }
                 break
               case 'requestedAccountName':
+                if( body[param].length != 12 ) {
+                  errors.push(
+                    getErrorObject(
+                      `InvalidAccountNameFormat`,
+                      `The requested account name "'${body[param]}'" is not 12 characters long. This server is not prepared to handle bidding on acccount names shorter than 12 characters for the EOS network.`
+                    )
+                  )
+                }
+
                 try {
                   format.encodeName(body[param]) // throws error on failed validation
                   requestedAccountName = body[param]
@@ -648,12 +668,18 @@ async function eosAccountCreateAndBuyBw (newAccountName, ownerPubKey, activePubK
 
   return eos.transaction(tr => {
     const eosPricingResponse = currentEosSystemRates.data
+
+    //apply minimum staked EOS amounts from Configs
+    let stakeNetQuantity = bns.lt(bns.mul(eosPricingResponse.net, net), CONFIG.eosAccountActivationStartingBalances.minimumNetEOSStake) ? CONFIG.eosAccountActivationStartingBalances.minimumNetEOSStake : bns.mul(eosPricingResponse.net, net)
+    let stakeCpuQuantity = bns.lt(bns.mul(eosPricingResponse.cpu, cpu),CONFIG.eosAccountActivationStartingBalances.minimumCpuEOSStake) ? CONFIG.eosAccountActivationStartingBalances.minimumCpuEOSStake : bns.mul(eosPricingResponse.cpu, cpu)
+
+
     const delegateBwOptions = {
       from: creatorAccountName,
       // receiver: 'edgytestey43',
       receiver: newAccountName,
-      stake_net_quantity: `${Number(bns.mul(eosPricingResponse.net, net)).toFixed(4)} EOS`,
-      stake_cpu_quantity: `${Number(bns.mul(eosPricingResponse.cpu, cpu)).toFixed(4)} EOS`,
+      stake_net_quantity: `${Number(stakeNetQuantity).toFixed(4)} EOS`,
+      stake_cpu_quantity: `${Number(stakeCpuQuantity).toFixed(4)} EOS`,
       transfer: 0
     }
     console.log('delegateBwOptions: ', delegateBwOptions)
@@ -681,8 +707,13 @@ async function eosAccountCreateAndBuyBw (newAccountName, ownerPubKey, activePubK
 }
 
 function getBtcPayClient () {
-  const keypair = btcpay.crypto.load_keypair(Buffer.from(ENV.clientPrivateKey, 'utf8'))
-  const client = new btcpay.BTCPayClient('https://' + CONFIG.btcpayServerHostName, keypair, ENV.merchantData ? ENV.merchantData : null)
+  let client
+  try {
+    const keypair = btcpay.crypto.load_keypair(Buffer.from(ENV.clientPrivateKey, 'utf8'))
+    client = new btcpay.BTCPayClient('https://' + CONFIG.btcpayServerHostName, keypair, ENV.merchantData ? ENV.merchantData : null)
+  } catch (e) {
+    throw new Error('Error in getBtcPayClient: ' , e)
+  }
 
   return client
 }
@@ -771,6 +802,7 @@ async function getLatestEosActivationPriceInSelectedCryptoCurrency (selectedCurr
 
           console.log('valuesInUSD: ', valuesInUSD)
 
+
           const eosActivationFeeInUSD = bns.mul(eosActivationFee, valuesInUSD.filter(element => !!element.EOS_USD)[0].EOS_USD)
           const eosActivationFeeInSelectedCurrencyCode = bns.div(valuesInUSD.filter(element => !!element.EOS_USD)[0].EOS_USD, valuesInUSD.filter(element => !!element[`${selectedCurrencyCode}_USD`])[0][`${selectedCurrencyCode}_USD`], 10, 12)
 
@@ -795,17 +827,31 @@ async function getLatestEosActivationPriceInSelectedCryptoCurrency (selectedCurr
 }
 
 async function getEosActivationFee () {
+  //requests current ram, net, cpu prices IN EOS from configured latest eosRates data provided from CONFIG.eosPricingRatesURL
   const getFee = await new Promise((resolve, reject) => {
     updateEosRates()
       .then(eosRates => {
         const eosPricingResponse = eosRates.data
 
+        //apply minimum staked EOS amounts from Configs
+
+        const net = CONFIG.eosAccountActivationStartingBalances.net
+        const cpu = CONFIG.eosAccountActivationStartingBalances.cpu 
+        const netStakeMinimum = CONFIG.eosAccountActivationStartingBalances.minimumNetEOSStake
+        const cpuStakeMinimum = CONFIG.eosAccountActivationStartingBalances.minimumCpuEOSStake
+
+        let stakeNetQuantity = Number(bns.mul(eosPricingResponse.net, net)).toFixed(4) < Number(netStakeMinimum) ? Number(netStakeMinimum).toFixed(4) : Number(bns.mul(eosPricingResponse.net, net)).toFixed(4) 
+        let stakeCpuQuantity = Number(bns.mul(eosPricingResponse.cpu, cpu)).toFixed(4) < Number(cpuStakeMinimum) ? Number(cpuStakeMinimum).toFixed(4) : Number(bns.mul(eosPricingResponse.cpu, cpu)).toFixed(4) 
+
+        console.log (`stakeNetQuantity: ${stakeNetQuantity}`)
+        console.log (`stakeCpuQuantity: ${stakeCpuQuantity}`)
+
         const totalEos = bns.add(
           bns.add(
             bns.mul(eosPricingResponse.ram, bns.div(CONFIG.eosAccountActivationStartingBalances.ram, '1000', 10, 3)),
-            bns.mul(eosPricingResponse.net, CONFIG.eosAccountActivationStartingBalances.net)
+            stakeNetQuantity.toString()
           ),
-          bns.mul(eosPricingResponse.cpu, CONFIG.eosAccountActivationStartingBalances.cpu)
+          stakeCpuQuantity.toString()
         )
 
         console.log(`totalEos: ${totalEos}`)

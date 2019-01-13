@@ -68,6 +68,6 @@
     "test": "npm run lint && mocha",
     "precommit": "npm run lint",
     "start": "node src/eos-name-server.js",
-    "dev-watch-eos": "sudo npx nodemon src/eos-name-server.js"
+    "dev-watch-eos": "npx nodemon src/eos-name-server.js"
   }
 }
