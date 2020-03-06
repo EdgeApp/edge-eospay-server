@@ -1,0 +1,120 @@
+// please move this file, with values, to a /config folder without the ".sample" file extension
+
+module.exports = {
+	btcpayServerHostName: 'btcpay123456.lndyn.com/', // set up with LunaNode or other provider
+	apiPublicDisplayName: 'Edge EOSIO Name Registration and Payment restful API',
+	apiVersionPrefix: '/api/v1',
+	clientHexPrivateKeyFullPath: './config/btcpay_client_private.key',
+	merchantPairingDataFullPath: './config/btcpay_client_merchant_paring.data',
+	btcpayStoreId: 'someLongAlphanumericString',
+	oneTimePairingCode: 'tMnNcLt',
+	supportedCurrencies: {
+		BTC: true,
+		LTC: true,
+		FTC: false,
+		DOGE: false,
+		DASH: false,
+		ETH: false,
+	},
+	invoiceNotificationURL:
+    'https://eospay.edge.app/api/v1/invoiceNotificationEvent/',
+	invoiceNotificationEmailAddress: 'admin@btcpay.teloscrew.com',
+	dbFullpath: 'http://myDbUsername:myDbPassword@localhost:5984',
+	btcPayInvoicePropsToSave: [
+		'url',
+		'status',
+		'btcPrice',
+		'btcDue',
+		'cryptoInfo',
+		'price',
+		'currency',
+		'invoiceTime',
+		'expirationTime',
+		'currentTime',
+		'lowFeeDetected',
+		'rate',
+		'exceptionStatus',
+		'refundAddressRequestPending',
+		'token',
+		'paymentSubtotals',
+		'paymentTotals',
+		'amountPaid',
+		'minerFees',
+		'addresses',
+	],
+	cryptoPricing: { // may not support any given crypto
+		updateFrequencyMs: 3000000,
+		apiKey: 'mycoinmerketcapapikey',
+		rootPath: 'https://pro-api.coinmarketcap.com/v1',
+		listings: '/cryptocurrency/listings/latest',
+		tickerQuotes: '/ticker/',
+	},
+	eosPricingRatesURL: 'https://info1.edgesecure.co:8444/v1/eosPrices',
+	chains: {
+		eos: {
+			// do NOT use private key that is used for multiple accounts
+			// doing so will cause queryAccountName to return first result (unreliable)
+			eosCreatorAccountPrivateKey:
+			'5JsomeLongActivePrivateKeyString', // recommend private active
+			API_ENDPOINT: 'https://api.eossweden.org',
+			// config
+			eosjsConfig: {
+				chainId: 'aca376f206b8fc25a6ed44dbdc66547c36c6c33e3a119ffbeaef943642f0e906',
+				httpEndpoint: 'https://api.eossweden.org', // https://api.eosnewyork.io/v1/ ?
+				expireInSeconds: 60,
+				broadcast: true,
+				debug: false,
+				sign: true,
+				keyProvider: '5jmyEosioActivePrivateKey'
+			},
+			hyperionEndpoint: 'https://api.eossweden.org',
+			HYPERION_ENDPOINT: 'https://api.eossweden.org',
+			resourcePrices: {
+				ram: .05,
+				cpu: 1,
+				net: 1
+			},
+			eosAccountActivationStartingBalances: {
+				ram: '4000', // # of Bytes staked
+				net: '4',
+				cpu: '4',
+				minimumRamEOSStake: '3',
+				minimumNetEOSStake: '1',
+				minimumCpuEOSStake: '1',
+			}
+		},
+		tlos: {
+			// do NOT use private key that is used for multiple accounts
+			// doing so will cause queryAccountName to return first result (unreliable)
+			eosCreatorAccountPrivateKey:
+      '5JmyTelosPrivateKey', // recommend private active
+			// config
+			eosjsConfig: {
+				chainId: '4667b205c6838ef70ff7988f6e8257e8be0e1284a2f59699054a018f743b1d11',
+				httpEndpoint: 'https://telos.caleos.io',
+				expireInSeconds: 60,
+				broadcast: true,
+				debug: false,
+				sign: true,
+				keyProvider: '5JmyTelosPrivateKey',
+				verbose: false
+			},
+			hyperionEndpoint: 'https://telos.caleos.io',
+			API_ENDPOINT: 'https://telos.caleos.io',
+			HYPERION_ENDPOINT: 'https://telos.caleos.io',
+			resourcePrices: {
+				ram: .002,
+				cpu: 1,
+				net: 1
+			},
+			eosAccountActivationStartingBalances: {
+				ram: '8000', // in Bytes of RAM
+				net: '4',
+				cpu: '4',
+				minimumRamEOSStake: '10',
+				minimumNetEOSStake: '2',
+				minimumCpuEOSStake: '2',
+			}
+		},
+	},
+}
