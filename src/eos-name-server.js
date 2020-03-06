@@ -9,7 +9,7 @@ const eosjs = require('eosjs')
 const { bns } = require('biggystring')
 const rp = require('request-promise')
 
-const CONFIG = JSON.parse(fs.readFileSync('./config/serverConfig.json', 'utf8'))
+const CONFIG = require('../config/serverConfig.js')
 
 const ENV = {
   clientPrivateKey: null,
@@ -19,6 +19,7 @@ const ENV = {
 
 
 const eos = eosjs(CONFIG.eosjs)
+
 const { ecc, format } = eosjs.modules
 
 const publicKey = ecc.privateToPublic(CONFIG.eosCreatorAccountPrivateKey)
@@ -31,6 +32,8 @@ const currentCryptoListings = {
   data: []
 }
 let creatorAccountName
+let app
+let credentials = {}
 
 /***
  *      _________________________ _________________________ _____________
@@ -42,140 +45,154 @@ let creatorAccountName
  *
  */
 
-try {
-  fs.readFile(CONFIG.clientPrivateKeyFullPath, 'hex', (err, data) => {
-    // 634("Client private key: ", new Uint8Array(Buffer.from(data)).join('') )
-    console.log('Client private key: ', data)
-    if (err) {
-      getErrorObject('FailureReadingAPIClientPrivateKey', 'Error reading API private key for identifying to BTCPay Server. Please generate with a call to generateAndSavePrivateKey path.', err)
-    }
+console.log('about to try')
 
-    ENV.clientPrivateKey = data
-    if (ENV.clientPrivateKey === null || ENV.clientPrivateKey === undefined) {
-      console.log('WARNING: CLIENT PRIVATE KEY NOT DETECTED. REQUIRED FOR COMMUNICATION WITH BTCPAY SERVER')
-    }
-  })
-  // console.log('READING Client private key...')
+async function main () {
+  try {
+    fs.readFile(CONFIG.clientPrivateKeyFullPath, 'hex', (err, data) => {
+      // 634("Client private key: ", new Uint8Array(Buffer.from(data)).join('') )
+      console.log('Client private key: ', data)
+      if (err) {
+        getErrorObject('FailureReadingAPIClientPrivateKey', 'Error reading API private key for identifying to BTCPay Server. Please generate with a call to generateAndSavePrivateKey path.', err)
+      }
 
-  fs.readFile(CONFIG.merchantPairingDataFullPath, 'utf8', (err, data) => {
-    if (err) {
-      getErrorObject('FailureReadingAPIClientMerchantCode', 'Error reading API merchant code for identifying to BTCPay Server. Please get this On BTCPay Server > Stores > Settings > Access Tokens > Create a new token, (leave PublicKey blank) > Request pairing, and enter code into API CONFIG.oneTimePairingCode.', err)
-    }
-
-    if (data === null || data === undefined) {
-      console.log('WARNING: MERCHANT CODE NOT DETECTED. REQUIRED FOR COMMUNICATION WITH BTCPAY SERVER.')
-    } else {
-      ENV.merchantData = JSON.parse(data)
-      console.log('MERCHANT DATA: ', ENV.merchantData)
-    }
-  })
-  // console.log('READING Client merchant code...')
-} catch (e) {
-  ENV.clientPrivateKey = null
-}
-
-try {
-  // Promise
-  eos.getBlock(1)
-    .then(result => console.log('Get EOS Block Response: ', result))
-    .catch(error => console.error('Error in Get EOS Block Response: ', error))
-
-  queryAccountName()
-    .then(result => {
-      console.log('EOS Account Name Query Result: ', result)
-
-      // rpc.get_currency_balance('eosio.token', result.account_names[0], 'EOS').then((balance) => console.log(balance))
-
-      // Promise
-      eos.getCurrencyBalance('eosio.token', result.account_names[0], 'EOS')
-        .then(result => console.log('eosio.token balance: ', result))
-        .catch(error => console.log('Error in eosio.token balance: ', error))
-
-      eos.getAccount({account_name: result.account_names[0]})
-        .then(result => console.log('eos account info: ', result))
-        .catch(error => console.log('*************Error in getAccount: ', error))
+      ENV.clientPrivateKey = data
+      if (ENV.clientPrivateKey === null || ENV.clientPrivateKey === undefined) {
+        console.log('WARNING: CLIENT PRIVATE KEY NOT DETECTED. REQUIRED FOR COMMUNICATION WITH BTCPAY SERVER')
+      }
     })
-    .catch(error => {
-      console.log('Error in EOS Account Name Query Result: ', error)
+    // console.log('READING Client private key...')
+
+    fs.readFile(CONFIG.merchantPairingDataFullPath, 'utf8', (err, data) => {
+      if (err) {
+        getErrorObject('FailureReadingAPIClientMerchantCode', 'Error reading API merchant code for identifying to BTCPay Server. Please get this On BTCPay Server > Stores > Settings > Access Tokens > Create a new token, (leave PublicKey blank) > Request pairing, and enter code into API CONFIG.oneTimePairingCode.', err)
+      }
+
+      if (data === null || data === undefined) {
+        console.log('WARNING: MERCHANT CODE NOT DETECTED. REQUIRED FOR COMMUNICATION WITH BTCPAY SERVER.')
+      } else {
+        ENV.merchantData = JSON.parse(data)
+        console.log('MERCHANT DATA: ', ENV.merchantData)
+      }
     })
-} catch (e) {
-  throw new Error('Error in EOS startup checks: ', e)
-}
-
-// PRICING
-try {
-  // testing pricing
-  getLatestEosActivationPriceInSelectedCryptoCurrency('BTC')
-    .then(result => {
-      console.log('getLatestEosActivationPriceInSelectedCryptoCurrency.result : ', result)
-    })
-    .catch(error => {
-      console.log()
-      throw new Error('ERROR in getLatestEosActivationPriceInSelectedCryptoCurrency() : ', error)
-    })
-} catch (e) {
-  throw ('Error in PRICING startup calls: ', e)
-}
-
-/***
- *                                    _____
- *      ____ _____    ____   ____   _/ ____\___________
- *     /    \\__  \  /    \ /  _ \  \   __\/  _ \_  __ \
- *    |   |  \/ __ \|   |  (  <_> )  |  | (  <_> )  | \/
- *    |___|  (____  /___|  /\____/   |__|  \____/|__|
- *         \/     \/     \/
- *                               .__         .______.
- *      ____  ____  __ __   ____ |  |__    __| _/\_ |__
- *    _/ ___\/  _ \|  |  \_/ ___\|  |  \  / __ |  | __ \
- *    \  \__(  <_> )  |  /\  \___|   Y  \/ /_/ |  | \_\ \
- *     \___  >____/|____/  \___  >___|  /\____ |  |___  /
- *         \/                  \/     \/      \/      \/
- */
-
-const nanoDb = nano(CONFIG.dbFullpath)
-const invoiceTxDb = nanoDb.db.use('invoice_tx')
-
-try {
-  console.log('DB check & init')
-
-  // nanoDb.db.destroy('invoice_tx',(err, body) => {
-  //   if (err) {
-  //     console.log( '***ERROR destroying db: invoice_tx', err)
-  //   } else{
-  //     console.log('database invoice_tx destroyed!', body)
-  //   }
-  // })
-
-  nanoDb.db.get('invoice_tx', (err, dbResponse) => {
-    console.log('err: ', err)
-
-    switch (true) {
-      case err && err.error === 'not_found':
-        throw (new Error('invoice_tx database does not exist.'))
-      case err && err.error === 'nodedown':
-        throw (new Error('Database appears to be down.'))
-      default:
-        console.log('dbResponse: ', dbResponse)
-        break
-    }
-  })
-} catch (e) {
-  console.log('ERROR in DB check & init', e)
-}
-// =============================================================================
-
-const app = express()
-let credentials = {}
-
-try {
-  credentials = {
-    key: fs.readFileSync(CONFIG.serverSSLKeyFilePath, 'utf8'),
-    cert: fs.readFileSync(CONFIG.serverSSLCertFilePath, 'utf8'),
-    ca: fs.readFileSync(CONFIG.serverSSLCaCertFilePath, 'utf8')
+    // console.log('READING Client merchant code...')
+  } catch (e) {
+    ENV.clientPrivateKey = null
   }
-} catch (e) {
-  console.log('Error reading server SSL data:', e)
+
+  try {
+    // Promise
+    eos.getBlock(1)
+      .then(result => console.log('Get EOS Block Response: ', result))
+      .catch(error => console.error('Error in Get EOS Block Response: ', error))
+
+    queryAccountName()
+      .then(result => {
+        console.log('EOS Account Name Query Result: ', result)
+
+        // rpc.get_currency_balance('eosio.token', result.account_names[0], 'EOS').then((balance) => console.log(balance))
+
+        // Promise
+        eos.getCurrencyBalance('eosio.token', result.account_names[0], 'EOS')
+          .then(result => {
+            console.log('eosio.token balance: ', result)
+          })
+          .catch(error => {
+            console.log('Error in eosio.token balance: ', error)
+          })
+
+        eos.getAccount({account_name: result.account_names[0]})
+          .then(result => {
+            console.log('eos account info: ', result)
+          })
+          .catch(error => {
+            console.log('*************Error in getAccount: ', error)
+          })
+      })
+      .catch(error => {
+        console.log('Error in EOS Account Name Query Result: ', error)
+      })
+  } catch (e) {
+    throw new Error('Error in EOS startup checks: ', e)
+  }
+
+  // PRICING
+  try {
+    // testing pricing
+    getLatestEosActivationPriceInSelectedCryptoCurrency('BTC')
+      .then(result => {
+        console.log('getLatestEosActivationPriceInSelectedCryptoCurrency.result : ', result)
+      })
+      .catch(error => {
+        console.log()
+        throw new Error('ERROR in getLatestEosActivationPriceInSelectedCryptoCurrency() : ', error)
+      })
+  } catch (e) {
+    throw ('Error in PRICING startup calls: ', e)
+  }
+
+  /***
+   *                                    _____
+   *      ____ _____    ____   ____   _/ ____\___________
+   *     /    \\__  \  /    \ /  _ \  \   __\/  _ \_  __ \
+   *    |   |  \/ __ \|   |  (  <_> )  |  | (  <_> )  | \/
+   *    |___|  (____  /___|  /\____/   |__|  \____/|__|
+   *         \/     \/     \/
+   *                               .__         .______.
+   *      ____  ____  __ __   ____ |  |__    __| _/\_ |__
+   *    _/ ___\/  _ \|  |  \_/ ___\|  |  \  / __ |  | __ \
+   *    \  \__(  <_> )  |  /\  \___|   Y  \/ /_/ |  | \_\ \
+   *     \___  >____/|____/  \___  >___|  /\____ |  |___  /
+   *         \/                  \/     \/      \/      \/
+   */
+
+  const nanoDb = nano(CONFIG.dbFullpath)
+  const invoiceTxDb = nanoDb.db.use('invoice_tx')
+
+  try {
+    console.log('DB check & init')
+
+    // nanoDb.db.destroy('invoice_tx',(err, body) => {
+    //   if (err) {
+    //     console.log( '***ERROR destroying db: invoice_tx', err)
+    //   } else{
+    //     console.log('database invoice_tx destroyed!', body)
+    //   }
+    // })
+
+    nanoDb.db.get('invoice_tx', (err, dbResponse) => {
+      console.log('err: ', err)
+
+      switch (true) {
+        case err && err.error === 'not_found':
+          throw (new Error('invoice_tx database does not exist.'))
+        case err && err.error === 'nodedown':
+          throw (new Error('Database appears to be down.'))
+        default:
+          console.log('dbResponse: ', dbResponse)
+          break
+      }
+    })
+  } catch (e) {
+    console.log('ERROR in DB check & init', e)
+  }
+  // =============================================================================
+
+  app = express()
+
+  try {
+    credentials = {
+      key: fs.readFileSync(CONFIG.serverSSLKeyFilePath, 'utf8'),
+      cert: fs.readFileSync(CONFIG.serverSSLCertFilePath, 'utf8'),
+      ca: fs.readFileSync(CONFIG.serverSSLCaCertFilePath, 'utf8')
+    }
+  } catch (e) {
+    console.log('Error reading server SSL data:', e)
+  }
 }
+
+main()
+
 app.use(bodyParser.json())
 app.use(bodyParser.urlencoded({ extended: true }))
 
@@ -258,7 +275,7 @@ app.get(CONFIG.apiVersionPrefix + '/pairClientWithServer', function (req, res) {
       console.log('pairResponse: ' ,pairResponse)
       if (pairResponse.merchant) {
         const pairResponseBuffer = Buffer.from(JSON.stringify(pairResponse))
-        
+
         fs.writeFile(CONFIG.merchantPairingDataFullPath, pairResponseBuffer, {encoding: 'hex', flag: 'wx'}, writeCallback)
         console.log('MERCHANT CODE:' + pairResponse.merchant)
         ENV.merchantData = pairResponse.merchant
@@ -277,7 +294,7 @@ app.get(CONFIG.apiVersionPrefix + '/pairClientWithServer', function (req, res) {
     res.status(500).send({message:`Error while pairing client to BTCPay server at "${CONFIG.btcpayServerHostName}". Check BTCPay server configs, and make sure BTCPay server is up and running.`, e})
   }
 })
-  
+
 app.get(CONFIG.apiVersionPrefix + '/rates/:baseCurrency?/:currency?', function (req, res) {
   const baseCurrency = req.params.baseCurrency || 'BTC'
   const currency = req.params.currency || 'USD'
@@ -295,6 +312,7 @@ app.get(CONFIG.apiVersionPrefix + '/rates/:baseCurrency?/:currency?', function (
 })
 
 app.get(CONFIG.apiVersionPrefix + '/getSupportedCurrencies', function (req, res) {
+  console.log('/getSupportedCurrencies called')
   res.status(200).send(CONFIG.supportedCurrencies)
 })
 
@@ -800,7 +818,7 @@ async function getLatestEosActivationPriceInSelectedCryptoCurrency (selectedCurr
               return { [`${crypto.symbol}_USD`]: crypto.quote.USD.price.toString() }
             })
 
-          console.log('valuesInUSD: ', valuesInUSD)
+          console.log('valuesInUSD: ', JSON.stringify(valuesInUSD))
 
 
           const eosActivationFeeInUSD = bns.mul(eosActivationFee, valuesInUSD.filter(element => !!element.EOS_USD)[0].EOS_USD)
@@ -836,12 +854,12 @@ async function getEosActivationFee () {
         //apply minimum staked EOS amounts from Configs
 
         const net = CONFIG.eosAccountActivationStartingBalances.net
-        const cpu = CONFIG.eosAccountActivationStartingBalances.cpu 
+        const cpu = CONFIG.eosAccountActivationStartingBalances.cpu
         const netStakeMinimum = CONFIG.eosAccountActivationStartingBalances.minimumNetEOSStake
         const cpuStakeMinimum = CONFIG.eosAccountActivationStartingBalances.minimumCpuEOSStake
 
-        let stakeNetQuantity = Number(bns.mul(eosPricingResponse.net, net)).toFixed(4) < Number(netStakeMinimum) ? Number(netStakeMinimum).toFixed(4) : Number(bns.mul(eosPricingResponse.net, net)).toFixed(4) 
-        let stakeCpuQuantity = Number(bns.mul(eosPricingResponse.cpu, cpu)).toFixed(4) < Number(cpuStakeMinimum) ? Number(cpuStakeMinimum).toFixed(4) : Number(bns.mul(eosPricingResponse.cpu, cpu)).toFixed(4) 
+        let stakeNetQuantity = Number(bns.mul(eosPricingResponse.net, net)).toFixed(4) < Number(netStakeMinimum) ? Number(netStakeMinimum).toFixed(4) : Number(bns.mul(eosPricingResponse.net, net)).toFixed(4)
+        let stakeCpuQuantity = Number(bns.mul(eosPricingResponse.cpu, cpu)).toFixed(4) < Number(cpuStakeMinimum) ? Number(cpuStakeMinimum).toFixed(4) : Number(bns.mul(eosPricingResponse.cpu, cpu)).toFixed(4)
 
         console.log (`stakeNetQuantity: ${stakeNetQuantity}`)
         console.log (`stakeCpuQuantity: ${stakeCpuQuantity}`)
