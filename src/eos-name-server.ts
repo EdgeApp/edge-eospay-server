@@ -13,7 +13,7 @@ const fetch = require("isomorphic-fetch")
 const { JsonRpc } = require("@eoscafe/hyperion")
 const hyperionEndpoint = "http://api.eossweden.org"
 const hyperionRpc = new JsonRpc(hyperionEndpoint, { fetch })
-const CONFIG = require('../config/serverConfig.js')
+const CONFIG = require('../config/serverConfig')
 
 const ENV = {
   clientPrivateKey: null,

@@ -11,7 +11,8 @@
       "skipFiles": [
         "<node_internals>/**"
       ],
-      "program": "${workspaceFolder}/src/eos-name-server.js"
+      "program": "${workspaceFolder}/src/eos-name-server.ts",
+      "outFiles": ["${workspaceFolder}/dist/**/*.js"]
     }
   ]
 }
