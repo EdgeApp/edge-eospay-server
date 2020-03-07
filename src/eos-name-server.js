@@ -8,7 +8,11 @@ const nano = require('nano')
 const eosjs = require('eosjs')
 const { bns } = require('biggystring')
 const rp = require('request-promise')
+const fetch = require("isomorphic-fetch")
 
+const { JsonRpc } = require("@eoscafe/hyperion")
+const hyperionEndpoint = "http://api.eossweden.org"
+const hyperionRpc = new JsonRpc(hyperionEndpoint, { fetch })
 const CONFIG = require('../config/serverConfig.js')
 
 const ENV = {
@@ -82,9 +86,13 @@ async function main () {
 
   try {
     // Promise
-    eos.getBlock(1)
-      .then(result => console.log('Get EOS Block Response: ', result))
-      .catch(error => console.error('Error in Get EOS Block Response: ', error))
+    // eos.getBlock(1)
+    //   .then(result => {
+    //     console.log('Get EOS Block Response: ', result)
+    //   })
+    //   .catch(error => {
+    //     console.error('Error in Get EOS Block Response: ', error)
+    //   })
 
     queryAccountName()
       .then(result => {
@@ -93,7 +101,7 @@ async function main () {
         // rpc.get_currency_balance('eosio.token', result.account_names[0], 'EOS').then((balance) => console.log(balance))
 
         // Promise
-        eos.getCurrencyBalance('eosio.token', result.account_names[0], 'EOS')
+        hyperionRpc.get_currency_balance('eosio.token', result.account_names[0], 'EOS')
           .then(result => {
             console.log('eosio.token balance: ', result)
           })
@@ -664,12 +672,16 @@ async function queryAccountName () {
   // Query for account name
 
   console.log(`publicKey: ${publicKey}`)
-  const accounts = await new Promise((resolve, reject) => {
-    eos.getKeyAccounts(publicKey, (error, result) => {
-      if (error) reject(error)
-      resolve(result)
-    })
-  })
+  // const accounts = await new Promise((resolve, reject) => {
+  //   eos.getKeyAccounts(publicKey, (error, result) => {
+  //     if (error) reject(error)
+  //     resolve(result)
+  //   })
+  // })
+
+  // kylan fix
+  const accounts = await hyperionRpc.get_key_accounts("EOS7YiNwHCeJdqXbFwdMfpib8SQk2HooMMmCacAzN8LEPzMNLetnP")
+  console.log('queryAccountName accounts is: ', accounts)
 
   if (accounts.account_names && accounts.account_names.length > 0) {
     creatorAccountName = accounts.account_names[0]
