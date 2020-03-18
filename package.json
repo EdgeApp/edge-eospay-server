@@ -67,7 +67,7 @@
     "lint": "standard '*.js' 'src/**/*.js' && npm run flow",
     "test": "npm run lint && mocha",
     "precommit": "npm run lint",
-    "start": "node src/eos-name-server.js",
+    "start": "node dist/eos-name-server.js",
     "watch": "npm run dev-watch-eos",
     "dev-watch-eos": "npx nodemon src/eos-name-server.js"
   }

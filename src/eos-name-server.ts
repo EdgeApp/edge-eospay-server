@@ -9,7 +9,7 @@ const eosjs = require('eosjs')
 const { bns } = require('biggystring')
 const rp = require('request-promise')
 const fetch = require("isomorphic-fetch")
-
+import { GetTokens } from '@eoscafe/hyperion'
 const { JsonRpc } = require("@eoscafe/hyperion")
 const hyperionEndpoint = "http://api.eossweden.org"
 const hyperionRpc = new JsonRpc(hyperionEndpoint, { fetch })
@@ -50,6 +50,7 @@ let credentials = {}
  */
 
 console.log('about to try')
+let invoiceTxDb
 
 async function main () {
   try {
@@ -95,27 +96,19 @@ async function main () {
     //   })
 
     queryAccountName()
-      .then(result => {
-        console.log('EOS Account Name Query Result: ', result)
+      .then(async (accountNameResults) => {
+        console.log('EOS Account Name Query accountNameResults: ', accountNameResults)
+        const accountName = accountNameResults.account_names[0]
 
         // rpc.get_currency_balance('eosio.token', result.account_names[0], 'EOS').then((balance) => console.log(balance))
 
         // Promise
-        hyperionRpc.get_currency_balance('eosio.token', result.account_names[0], 'EOS')
-          .then(result => {
-            console.log('eosio.token balance: ', result)
-          })
-          .catch(error => {
-            console.log('Error in eosio.token balance: ', error)
-          })
-
-        eos.getAccount({account_name: result.account_names[0]})
-          .then(result => {
-            console.log('eos account info: ', result)
-          })
-          .catch(error => {
-            console.log('*************Error in getAccount: ', error)
-          })
+        const accountTokens: GetTokens = await hyperionRpc.get_tokens(accountName)
+        // console.log('accountTokens: ', accountTokens)
+        const primaryToken = accountTokens.tokens.find(token => {
+          // kylan hard-code, remove to config later
+          return token.symbol === 'EOS'
+        })
       })
       .catch(error => {
         console.log('Error in EOS Account Name Query Result: ', error)
@@ -132,7 +125,7 @@ async function main () {
         console.log('getLatestEosActivationPriceInSelectedCryptoCurrency.result : ', result)
       })
       .catch(error => {
-        console.log()
+        console.log(error)
         throw new Error('ERROR in getLatestEosActivationPriceInSelectedCryptoCurrency() : ', error)
       })
   } catch (e) {
@@ -155,7 +148,8 @@ async function main () {
    */
 
   const nanoDb = nano(CONFIG.dbFullpath)
-  const invoiceTxDb = nanoDb.db.use('invoice_tx')
+  console.log('CONFIG.dbFullpath: ', CONFIG.dbFullpath)
+  invoiceTxDb = nanoDb.db.use('invoice_tx')
 
   try {
     console.log('DB check & init')
@@ -224,7 +218,7 @@ app.get(CONFIG.apiVersionPrefix + '/', function (req, res) {
   res.status(200).send({ message: `Welcome to ${CONFIG.apiPublicDisplayName}` })
 })
 
-app.get(CONFIG.apiVersionPrefix + '/generateAndSavePrivateKey', function (req, res) {
+app.get(CONFIG.apiVersionPrefix + '/ ', function (req, res) {
   // https://github.com/btcpayserver/node-btcpay
   try {
     const keypair = btcpay.crypto.generate_keypair()
@@ -277,6 +271,7 @@ app.get(CONFIG.apiVersionPrefix + '/pairClientWithServer', function (req, res) {
 
   try {
     client = getBtcPayClient()
+    console.log('kylan in pairWithClientServer')
     client
     .pair_client(CONFIG.oneTimePairingCode) // get this On BTCPay Server > Stores > Settings > Access Tokens > Create a new token, (leave PublicKey blank) > Request pairing
     .then((pairResponse) => {
@@ -307,7 +302,7 @@ app.get(CONFIG.apiVersionPrefix + '/rates/:baseCurrency?/:currency?', function (
   const baseCurrency = req.params.baseCurrency || 'BTC'
   const currency = req.params.currency || 'USD'
   const client = getBtcPayClient()
-
+  console.log('in /rates/:baseCurrency')
   client.get_rates(`${baseCurrency}_${currency}`, CONFIG.btcpayStoreId)
     .then((rates) => {
       // console.log(rates)
@@ -326,6 +321,7 @@ app.get(CONFIG.apiVersionPrefix + '/getSupportedCurrencies', function (req, res)
 
 app.post(CONFIG.apiVersionPrefix + '/activateAccount', function (req, res) {
   // validate body
+  console.log('in POST activatAccount')
   const body = req.body
   const errors = []
   // expectedParams
@@ -424,6 +420,7 @@ app.post(CONFIG.apiVersionPrefix + '/activateAccount', function (req, res) {
     getLatestEosActivationPriceInSelectedCryptoCurrency(requestedPaymentCurrency).then(eosActivationFeeInSelectedCryptoUSD => {
       // createInvoice for payment & setup watcher
       const client = getBtcPayClient()
+      console.log('if not /activateAccount?, client is: ', client)
       client.create_invoice({
         price: eosActivationFeeInSelectedCryptoUSD,
         currency: 'USD',
@@ -431,9 +428,9 @@ app.post(CONFIG.apiVersionPrefix + '/activateAccount', function (req, res) {
         notificationURL: CONFIG.invoiceNotificationURL || null,
         extendedNotifications: true,
         physical: false
-      })
+      }) // should have token?
         .then((invoice) => {
-          console.log('invoice: ', invoice)
+          console.log('kylan invoice1: ', invoice)
 
           invoiceTx = formatCleanupInvoiceData(invoice)
 
@@ -454,10 +451,10 @@ app.post(CONFIG.apiVersionPrefix + '/activateAccount', function (req, res) {
           // invoiceTx._rev = _rev
           invoiceTxDb.insert(invoiceTx, (err, insertResult) => {
             if (err) {
-            // console.log()
+              console.log('kylan2 invoiceTxDB error')
               res.status(500).send({message: 'Error saving transaction', error: err})
             } else {
-              console.log('invoiceTx.cryptoInfo: ', invoiceTx.cryptoInfo)
+              console.log('kylan3 invoiceTx.cryptoInfo: ', invoiceTx.cryptoInfo)
 
               let { totalDue, rate } = invoiceTx.cryptoInfo.filter(cryptoData => {
                 return cryptoData.cryptoCode === requestedPaymentCurrency
@@ -475,7 +472,7 @@ app.post(CONFIG.apiVersionPrefix + '/activateAccount', function (req, res) {
           })
         })
         .catch((err) => {
-          console.log('Error creating invoice:', err)
+          console.log('kylan00Error creating invoice:', err)
           res.status(500).send({message: 'error creating invoice', error: err})
         })
     })
@@ -680,7 +677,7 @@ async function queryAccountName () {
   // })
 
   // kylan fix
-  const accounts = await hyperionRpc.get_key_accounts("EOS7YiNwHCeJdqXbFwdMfpib8SQk2HooMMmCacAzN8LEPzMNLetnP")
+  const accounts = await hyperionRpc.get_key_accounts(publicKey)
   console.log('queryAccountName accounts is: ', accounts)
 
   if (accounts.account_names && accounts.account_names.length > 0) {
@@ -739,10 +736,14 @@ async function eosAccountCreateAndBuyBw (newAccountName, ownerPubKey, activePubK
 function getBtcPayClient () {
   let client
   try {
-    const keypair = btcpay.crypto.load_keypair(Buffer.from(ENV.clientPrivateKey, 'utf8'))
-    client = new btcpay.BTCPayClient('https://' + CONFIG.btcpayServerHostName, keypair, ENV.merchantData ? ENV.merchantData : null)
+    console.log('kylan in getBtCpayClient')
+    const keypair = btcpay.crypto.load_keypair(Buffer.from("1f3ad04df972593d8de26a33faf852361bc097ecc5471b0e057868fa04fb3595", 'hex'))
+    console.log('kylan in gtBtcPayClient, after keypair, keypair:', keypair)
+    client = new btcpay.BTCPayClient('https://btcpay.teloscrew.com', keypair, {merchant: "8iDFCwi2XUCTXBmFsKcCvKNXfTm5R2ozhDaYgRefZFpP"})
+    console.log('btcPay client is: ', client)
+
   } catch (e) {
-    throw new Error('Error in getBtcPayClient: ' , e)
+    throw new Error('Error in getBtcPayClient: ', e)
   }
 
   return client
@@ -818,8 +819,9 @@ async function getLatestEosActivationPriceInSelectedCryptoCurrency (selectedCurr
   const _getLatest = await new Promise((resolve, reject) => {
     updateCryptoPrices()
       .then((cryptoPricing) => {
+        console.log('kylan1')
         console.log(`getLatestEosActivationPriceInSelectedCryptoCurrency().cryptoPricing received ${cryptoPricing.data.length} cryptos`)
-
+        console.log('kylan2')
         getEosActivationFee().then(eosActivationFee => {
           const valuesInUSD = cryptoPricing.data
             .filter((crypto) => {
@@ -839,15 +841,17 @@ async function getLatestEosActivationPriceInSelectedCryptoCurrency (selectedCurr
           console.log('eosActivationFee: ', eosActivationFee)
           console.log('eosActivationFee in USD: ', eosActivationFeeInUSD)
           console.log(`calculated eosActivationFee in : ${selectedCurrencyCode}: `, eosActivationFeeInSelectedCurrencyCode)
-
+          console.log('kylansomething')
           resolve(eosActivationFeeInUSD)
         })
           .catch(error => {
+            console.log('getEosActivationFee().error:')
             console.log('getEosActivationFee().error: ', error)
             reject(error)
           })
       })
       .catch((error) => {
+        console.log('getEosActivationFee().error2:')
         console.log('getLatestEosActivationPriceInSelectedCryptoCurrency().error: ', error)
         reject(error)
       })
@@ -908,10 +912,11 @@ async function updateEosRates () {
       rp(requestOptions).then(eosPricingResponse => {
         now = new Date()
         console.log('eosPricingResponse: ', eosPricingResponse)
-
+        console.log(1)
         currentEosSystemRates.lastUpdated = now.getTime()
+        console.log(2)
         currentEosSystemRates.data = eosPricingResponse
-
+        console.log(3)
         resolve(currentEosSystemRates)
       }).catch(error => {
         console.log('Error in eos pricing: ', error)

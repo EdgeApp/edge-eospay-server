@@ -5,6 +5,7 @@ dist/
 test/
 config/
 serverConfig.json
+serverConfig.js
 .envconfig
 
 .DS_Store
