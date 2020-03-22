@@ -33,7 +33,7 @@
     "es6-promisify-all": "^0.1.0",
     "express": "^4.16.4",
     "jsonschema": "^1.1.1",
-    "nano": "^6.4.4",
+    "nano": "^8.2.2",
     "node-fetch": "^1.7.2",
     "promisify-node": "^0.4.0",
     "random-js": "^1.0.8",
@@ -67,8 +67,8 @@
     "lint": "standard '*.js' 'src/**/*.js' && npm run flow",
     "test": "npm run lint && mocha",
     "precommit": "npm run lint",
-    "start": "node dist/eos-name-server.js",
+    "start": "tsc || true && node dist/eos-name-server.js",
     "watch": "npm run dev-watch-eos",
-    "dev-watch-eos": "npx nodemon src/eos-name-server.js"
+    "dev-watch-eos": "npx nodemon --exec \"tsc && true\" src/eos-name-server.js"
   }
 }
