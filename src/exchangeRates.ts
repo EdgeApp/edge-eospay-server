@@ -6,7 +6,7 @@ import { currentEosSystemRates, currentExchangeRates } from './common'
 const CURRENCY_CODE = 'tlos'
 const CONFIG = require(`../config/${CURRENCY_CODE.toLowerCase()}/${CURRENCY_CODE.toLowerCase()}ServerConfig`)
 
-console.log('prices are: ', prices)
+// console.log('prices are: ', prices)
 
 export async function updateExchangeRates () {
   const doUpdate = await new Promise((resolve, reject) => {
