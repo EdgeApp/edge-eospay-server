@@ -6,10 +6,19 @@ const btcpay = require('btcpay')
 
 const keypair = btcpay.crypto.load_keypair(new Buffer.from('1f3ad04df972593d8de26a33faf852361bc097ecc5471b0e057868fa04fb3595', 'hex'))
 
-// console.log('keypair: ', keypair)
-const client = new btcpay.BTCPayClient('https://btcpay.teloscrew.com', keypair, {merchant: "8iDFCwi2XUCTXBmFsKcCvKNXfTm5R2ozhDaYgRefZFpP"});
-console.log(3)
+const client = new btcpay.BTCPayClient('https://btcpay.teloscrew.com', keypair, {merchant: "6wEpWvJkAzump9cibtW6uw3knqrHyqCjk88f7btw7rAs"});
 // store id on btcpay
-client.get_rates(['BTC_USD'], 'AH2V3cFTyrjNxrMa8PBt7CVqGTpCG6SrxihsePNVibWT')
-  .then(rates => console.log(rates))
+
+const params = {
+  dateStart: '2020-01-01',
+  dateEnd: '2020-03-24',
+  limit: 50,
+  offset: 0
+}
+// client.get_invoices({
+//   params,
+//   token: '6wEpWvJkAzump9cibtW6uw3knqrHyqCjk88f7btw7rAs'
+// })
+client.get_invoices()
+  .then(rates => console.log(JSON.stringify(rates)))
   .catch(err => console.log(err));

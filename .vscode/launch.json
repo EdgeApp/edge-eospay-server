@@ -5,6 +5,7 @@
   "version": "0.2.0",
   "configurations": [
 
+
     {
       "type": "node",
       "request": "launch",
@@ -15,6 +16,17 @@
       "program": "${workspaceFolder}/src/eos-name-server.ts",
       "outFiles": ["${workspaceFolder}/dist/**/*.js"],
       "preLaunchTask": "tsc"
+    },
+    {
+      "type": "node",
+      "request": "launch",
+      "name": "Test Program",
+      "skipFiles": [
+        "<node_internals>/**"
+      ],
+      "program": "${workspaceFolder}/src/test.js",
+      // "outFiles": ["${workspaceFolder}/dist/**/*.js"],
+      // "preLaunchTask": "tsc"
     }
   ]
 }

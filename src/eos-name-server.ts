@@ -14,13 +14,8 @@ import { GetTokens } from '@eoscafe/hyperion'
 const { JsonRpc } = require("@eoscafe/hyperion")
 import request from 'request-promise'
 const secp256k1 = require('secp256k1')
-const keypair = btcpay.crypto.load_keypair(new Buffer.from('1f3ad04df972593d8de26a33faf852361bc097ecc5471b0e057868fa04fb3595', 'hex'))
-const btcPayClient = new btcpay.BTCPayClient('https://btcpay.teloscrew.com', keypair, {merchant: '8iDFCwi2XUCTXBmFsKcCvKNXfTm5R2ozhDaYgRefZFpP'})
-console.log('btcPayClient: ', btcPayClient)
 const CURRENCY_CODE = 'tlos'
 const CONFIG = require(`../config/${CURRENCY_CODE.toLowerCase()}/${CURRENCY_CODE.toLowerCase()}ServerConfig`)
-const hyperionRpc = new JsonRpc(CONFIG.hyperionEndpoint, { fetch })
-
 import {
   currentEosSystemRates,
   currentCryptoListings
@@ -29,6 +24,13 @@ import {
   updateExchangeRates,
   getLatestEosActivationPriceInSelectedCryptoCurrency
 } from './exchangeRates'
+
+
+const keypair = btcpay.crypto.load_keypair(new Buffer.from('1f3ad04df972593d8de26a33faf852361bc097ecc5471b0e057868fa04fb3595', 'hex'))
+const btcPayClient = new btcpay.BTCPayClient('https://btcpay.teloscrew.com', keypair, {merchant: '6wEpWvJkAzump9cibtW6uw3knqrHyqCjk88f7btw7rAs'})
+// console.log('btcPayClient: ', btcPayClient)
+
+const hyperionRpc = new JsonRpc(CONFIG.hyperionEndpoint, { fetch })
 
 
 const ENV = {
@@ -179,7 +181,8 @@ async function init () {
         case err && err.error === 'nodedown':
           throw (new Error('Database appears to be down.'))
         default:
-          console.log('dbResponse: ', dbResponse)
+          // console.log('dbResponse: ', dbResponse)
+          console.log('db has response')
           break
       }
     })
@@ -193,8 +196,8 @@ async function init () {
   try {
     credentials = {
       key: fs.readFileSync(CONFIG.serverSSLKeyFilePath, 'utf8'),
-      cert: fs.readFileSync(CONFIG.serverSSLCertFilePath, 'utf8'),
-      ca: fs.readFileSync(CONFIG.serverSSLCaCertFilePath, 'utf8')
+      cert: fs.readFileSync(CONFIG.serverSSLCertFilePath, 'utf8')
+      // ca: fs.readFileSync(CONFIG.serverSSLCaCertFilePath, 'utf8')
     }
   } catch (e) {
     console.log('Error reading server SSL data:', e)
@@ -227,7 +230,11 @@ app.get(CONFIG.apiVersionPrefix + '/', function (req, res) {
   res.status(200).send({ message: `Welcome to ${CONFIG.apiPublicDisplayName}` })
 })
 
-app.get(CONFIG.apiVersionPrefix + '/invoiceTxs', cors(), async function (req, res) {
+app.get(CONFIG.apiVersionPrefix + '/test', (req, res) => {
+  console.log('test success')
+})
+
+app.get(CONFIG.apiVersionPrefix + '/invoiceTxs', async function (req, res) {
   console.log('get /invoicesTxs')
 
   const params = {
@@ -236,111 +243,13 @@ app.get(CONFIG.apiVersionPrefix + '/invoiceTxs', cors(), async function (req, re
     limit: 50,
     offset: 0
   }
-  btcPayClient.get_invoices({
-    params,
-    token: '8iDFCwi2XUCTXBmFsKcCvKNXfTm5R2ozhDaYgRefZFpP'
-  })
-  .then(rates => {
-    console.log(rates)
+  btcPayClient.get_invoices()
+  .then(invoices => {
+    res.status(200).send(invoices)
   })
   .catch(err => {
-    console.log(err)
+    console.log('/invoiceTxs error: ', err)
   })
-
-  // let request = require('request');
-
-  // let resource_url = 'https://btcpay.teloscrew.com/invoices'
-
-  // const message = resource_url
-  // const messageBuff = Buffer.alloc(32)
-  // messageBuff.write(message, 'utf-8')
-  // console.log('messageBuff: ', messageBuff)
-  // const privKey = Buffer.from('1f3ad04df972593d8de26a33faf852361bc097ecc5471b0e057868fa04fb3595', 'hex')
-  // const privKeyBuff = Buffer.alloc(32)
-  // privKeyBuff.write(privKey.toString(), 'utf-8')
-  // const sigObj = secp256k1.sign(messageBuff, privKeyBuff)
-  // const sigHex = sigObj.signature.toString('hex')
-  // console.log('sigHex is: ', sigObj.signature.toString('hex'))
-  // let token = '8iDFCwi2XUCTXBmFsKcCvKNXfTm5R2ozhDaYgRefZFpP'
-  // let dateStart = '2020-1-24'
-  // let dateEnd = '2020-3-23'
-  // let limit = '50'
-  // let offset = '0'
-  // let headers = {
-  //    "x-accept-version": "2.0.0",
-  //    "Content-Type": "application/json",
-  //    "x-identity": "02b4affa3d4b3f8af32117576ebc80ffa0a17bb0aec40f6668dc9a884d562e399b",
-  //    "x-signature": sigHex
-  // };
-  // let options = {
-  //    url: resource_url +
-  //     '?token=' + token +
-  //       '&dateStart=' + dateStart +
-  //       '&dateEnd=' + dateEnd +
-  //       '&limit=' + limit +
-  //       '&offset=' + offset,
-  //    method: 'GET',
-  //    headers: headers,
-  //    json: true
-  // };
-
-  // request(options, function (error, response, body) {
-  //     console.log('response: ', response)
-  //     console.log('body: ', body)
-  // })
-})
-
-app.get(CONFIG.apiVersionPrefix + '/invoiceTxs1', cors(), async function (req, res) {
-  console.log('get /invoicesTxs1')
-
-  try {
-    let post_data = {
-       "id": "Tf7enNrg1xniCef9HU55GAzS71x8vwaccES",
-       "facade": "merchant"
-    };
-    const headers = {
-      "x-accept-version": "2.0.0",
-      "Content-type": "application/json",
-      "x-identity": "02b4affa3d4b3f8af32117576ebc80ffa0a17bb0aec40f6668dc9a884d562e399b",
-
-    }
-    const body = {
-      id: 'CNNgnhTLiZx1Dug6VudVPRR3aNeamtwgNWrerVwsuPxB'
-    }
-    const url = 'https://btcpay.teloscrew.com/tokens'
-    const options = {
-      url,
-      method: 'POST',
-      json: post_data,
-      headers: headers
-    }
-    const message = url + JSON.stringify(body)
-    const messageBuff = Buffer.alloc(32)
-    messageBuff.write(message, 'utf-8')
-    console.log('messageBuff: ', messageBuff)
-    const privKey = Buffer.from('1f3ad04df972593d8de26a33faf852361bc097ecc5471b0e057868fa04fb3595', 'hex')
-    const privKeyBuff = Buffer.alloc(32)
-    privKeyBuff.write(privKey.toString(), 'utf-8')
-    const sigObj = secp256k1.sign(messageBuff, privKeyBuff)
-    console.log('sigObj is: ', sigObj)
-    headers['x-signature'] = sigObj
-
-    const response = await request()
-    const data = await response.json()
-    // const results = []
-    // body.rows.forEach((doc) => {
-    //   // console.log(doc)
-    //   const data = invoiceTxDb.get(doc.id)
-    //   results.push(data)
-    // })
-    // const invoiceTxData = await Promise.all(results)
-    // invoiceTxData.sort((a, b) => b.invoiceTime - a.invoiceTime)
-    console.log('response: ', response)
-    console.log('data: ', data)
-    res.status(200).send(response)
-  } catch (e) {
-    console.log('get /invoicesTxs error: ', e)
-  }
 })
 
 app.get(CONFIG.apiVersionPrefix + '/ ', function (req, res) {
@@ -778,8 +687,8 @@ httpServer.listen(ENV.port, () => {
   console.log(`HTTP Server running on port ${ENV.port}`)
 })
 
-httpsServer.listen(443, () => {
-  console.log('HTTPS Server running on port 443')
+httpsServer.listen(8003, () => {
+  console.log('HTTPS Server running on port 8003')
 })
 
 /***
@@ -867,7 +776,7 @@ function getBtcPayClient () {
     const keypair = btcpay.crypto.load_keypair(Buffer.from("1f3ad04df972593d8de26a33faf852361bc097ecc5471b0e057868fa04fb3595", 'hex'))
     console.log('kylan in gtBtcPayClient, after keypair, keypair:', keypair)
     console.log('public is: ', keypair.getPublic(true|false, 'hex')
-    client = new btcpay.BTCPayClient('https://btcpay.teloscrew.com', keypair, {merchant: "8iDFCwi2XUCTXBmFsKcCvKNXfTm5R2ozhDaYgRefZFpP"})
+    client = new btcpay.BTCPayClient('https://btcpay.teloscrew.com', keypair, {merchant: "6wEpWvJkAzump9cibtW6uw3knqrHyqCjk88f7btw7rAs"})
     console.log('btcPay client is: ', client)
 
   } catch (e) {
