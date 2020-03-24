@@ -208,6 +208,7 @@ init()
 
 app.use(bodyParser.json())
 app.use(bodyParser.urlencoded({ extended: true }))
+app.use(cors())
 
 // Starting both http & https servers
 const httpServer = http.createServer(app)
