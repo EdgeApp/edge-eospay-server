@@ -245,8 +245,28 @@ app.get(CONFIG.apiVersionPrefix + '/invoiceTxs', async function (req, res) {
     offset: 0
   }
   btcPayClient.get_invoices()
-  .then(invoices => {
-    res.status(200).send(invoices)
+  .then(async (btcPayInvoices) => {
+    const body = await invoiceTxDb.list()
+    // const results = []
+    const resultsObj = {}
+    body.rows.forEach((doc) => {
+      // console.log(doc)
+      const data = invoiceTxDb.get(doc.id)
+      resultsObj[doc.id] = invoiceTxDb.get(doc.id)
+      // results.push(data)
+    })
+    const promisedResults = Object.values(resultsObj)
+    const output = {}
+
+    const resolvedResultsObj = await Promise.all(promisedResults)
+    for (const doc of resolvedResultsObj) {
+      const invoiceData = btcPayInvoices.find(btcPayInvoice => btcPayInvoice.id === doc._id)
+      output[doc._id] = {
+        ...doc,
+        btcPayInfo: invoiceData
+      }
+    }
+    res.status(200).send(output)
   })
   .catch(err => {
     console.log('/invoiceTxs error: ', err)
