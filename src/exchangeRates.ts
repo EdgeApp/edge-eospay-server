@@ -131,8 +131,8 @@ async function getEosActivationFee () {
         )
 
         console.log(`totalEos: ${totalEos}`)
-
-        resolve(totalEos)
+        // change value later
+        resolve('1' /*totalEos*/)
       })
       .catch(error => console.log('Error in getEosActivationFee()', error))
   })

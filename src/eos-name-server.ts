@@ -519,6 +519,7 @@ app.post(CONFIG.apiVersionPrefix + '/activateAccount', function (req, res) {
 
               res.status(200).send(
                 {
+                  invoiceTx,
                   currencyCode: requestedPaymentCurrency,
                   paymentAddress: invoiceTx.addresses && invoiceTx.addresses[requestedPaymentCurrency],
                   expireTime: invoiceTx.expirationTime,
@@ -596,6 +597,7 @@ app.post(CONFIG.apiVersionPrefix + '/invoiceNotificationEvent', function (req, r
   // console.log('invoiceEventData: ', invoiceEventData)
 
   invoiceTxDb.get(invoiceId, (err, invoiceData) => {
+    console.log('getting invoiceId, invoiceId is: ', invoiceId, ' and invoiceData is: ', invoiceData)
     if (err) {
       console.log(getErrorObject('InvoiceTxDbError', 'Failure retrieving invoice from database on btcpay notification.', err))
     } else {
@@ -762,8 +764,8 @@ async function eosAccountCreateAndBuyBw (newAccountName, ownerPubKey, activePubK
       from: creatorAccountName,
       // receiver: 'edgytestey43',
       receiver: newAccountName,
-      stake_net_quantity: `${Number(stakeNetQuantity).toFixed(4)} EOS`,
-      stake_cpu_quantity: `${Number(stakeCpuQuantity).toFixed(4)} EOS`,
+      stake_net_quantity: `${Number(stakeNetQuantity).toFixed(4)} TLOS`,
+      stake_cpu_quantity: `${Number(stakeCpuQuantity).toFixed(4)} TLOS`,
       transfer: 0
     }
     console.log('delegateBwOptions: ', delegateBwOptions)
@@ -793,12 +795,8 @@ async function eosAccountCreateAndBuyBw (newAccountName, ownerPubKey, activePubK
 function getBtcPayClient () {
   let client
   try {
-    console.log('kylan in getBtCpayClient')
     const keypair = btcpay.crypto.load_keypair(Buffer.from("1f3ad04df972593d8de26a33faf852361bc097ecc5471b0e057868fa04fb3595", 'hex'))
-    console.log('kylan in gtBtcPayClient, after keypair, keypair:', keypair)
-    console.log('public is: ', keypair.getPublic(true|false, 'hex')
     client = new btcpay.BTCPayClient('https://btcpay.teloscrew.com', keypair, {merchant: "6wEpWvJkAzump9cibtW6uw3knqrHyqCjk88f7btw7rAs"})
-    console.log('btcPay client is: ', client)
 
   } catch (e) {
     throw new Error('Error in getBtcPayClient: ', e)
