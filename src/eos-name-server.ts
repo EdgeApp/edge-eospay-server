@@ -14,8 +14,6 @@ import { GetTokens } from '@eoscafe/hyperion'
 const { JsonRpc } = require("@eoscafe/hyperion")
 import request from 'request-promise'
 const secp256k1 = require('secp256k1')
-const CURRENCY_CODE = 'tlos'
-const CONFIG = require(`../config/${CURRENCY_CODE.toLowerCase()}/${CURRENCY_CODE.toLowerCase()}ServerConfig`)
 import {
   currentEosSystemRates,
   currentCryptoListings
@@ -25,9 +23,16 @@ import {
   getLatestEosActivationPriceInSelectedCryptoCurrency
 } from './exchangeRates'
 
+const CURRENCY_CODE = process.argv[2] // pass in currency code as an argument eg 'eos' or 'tlos'
+const LOWERCASE_CURRENCY_CODE = CURRENCY_CODE.toLowerCase()
+const CONFIG = require(`../config/${LOWERCASE_CURRENCY_CODE}/${LOWERCASE_CURRENCY_CODE}ServerConfig`)
 
-const keypair = btcpay.crypto.load_keypair(new Buffer.from('1f3ad04df972593d8de26a33faf852361bc097ecc5471b0e057868fa04fb3595', 'hex'))
-const btcPayClient = new btcpay.BTCPayClient('https://btcpay.teloscrew.com', keypair, {merchant: '6wEpWvJkAzump9cibtW6uw3knqrHyqCjk88f7btw7rAs'})
+const privKey = fs.readFileSync(CONFIG.clientHexPrivateKeyFullPath, 'utf8')
+const keypair = btcpay.crypto.load_keypair(privKey)
+const merchantFileData = fs.readFileSync(CONFIG.merchantPairingDataFullPath, 'utf8')
+const merchantData = JSON.parse(merchantFileData)
+const { merchantKey } = merchantData
+const btcPayClient = new btcpay.BTCPayClient(`https://${CONFIG.btcpayServerHostName}`, keypair, {merchant: merchantKey})
 // console.log('btcPayClient: ', btcPayClient)
 
 const hyperionRpc = new JsonRpc(CONFIG.hyperionEndpoint, { fetch })
@@ -64,7 +69,7 @@ let invoiceTxDb
 
 async function init () {
   try {
-    fs.readFile(CONFIG.clientPrivateKeyFullPath, 'hex', (err, data) => {
+    fs.readFile(CONFIG.clientHexPrivateKeyFullPath, 'hex', (err, data) => {
       // 634("Client private key: ", new Uint8Array(Buffer.from(data)).join('') )
       console.log('Client private key: ', data)
       if (err) {
@@ -116,7 +121,6 @@ async function init () {
         const accountTokens: GetTokens = await hyperionRpc.get_tokens(accountName)
         // console.log('accountTokens: ', accountTokens)
         const primaryToken = accountTokens.tokens.find(token => {
-          // kylan hard-code, remove to config later
           return token.symbol === CURRENCY_CODE
         })
       })
@@ -294,7 +298,7 @@ app.get(CONFIG.apiVersionPrefix + '/ ', function (req, res) {
         res.status(200).send({message: 'Private key saved to server.', PK: keypair.priv})
       }
     }
-    fs.writeFile(CONFIG.clientPrivateKeyFullPath, keypair.priv, {encoding: 'hex', flag: 'wx'}, writeCallback)
+    fs.writeFile(CONFIG.clientHexPrivateKeyFullPath, keypair.priv, {encoding: 'hex', flag: 'wx'}, writeCallback)
   } catch (e) {
     console.log('Error in generating and saving private key.', e)
     res.status(500).send({message: 'Error in generating and saving private key.'})
@@ -327,7 +331,6 @@ app.get(CONFIG.apiVersionPrefix + '/pairClientWithServer', function (req, res) {
 
   try {
     client = getBtcPayClient()
-    console.log('kylan in pairWithClientServer')
     client
     .pair_client(CONFIG.oneTimePairingCode) // get this On BTCPay Server > Stores > Settings > Access Tokens > Create a new token, (leave PublicKey blank) > Request pairing
     .then((pairResponse) => {
@@ -487,7 +490,7 @@ app.post(CONFIG.apiVersionPrefix + '/activateAccount', function (req, res) {
         physical: false
       }) // should have token?
         .then((invoice) => {
-          console.log('kylan invoice1: ', invoice)
+          console.log('invoice: ', invoice)
 
           invoiceTx = formatCleanupInvoiceData(invoice)
 
@@ -508,10 +511,10 @@ app.post(CONFIG.apiVersionPrefix + '/activateAccount', function (req, res) {
           // invoiceTx._rev = _rev
           invoiceTxDb.insert(invoiceTx, (err, insertResult) => {
             if (err) {
-              console.log('kylan2 invoiceTxDB error')
+              console.log('invoiceTxDB error:', err)
               res.status(500).send({message: 'Error saving transaction', error: err})
             } else {
-              console.log('kylan3 invoiceTx.cryptoInfo: ', invoiceTx.cryptoInfo)
+              console.log('invoiceTx.cryptoInfo: ', invoiceTx.cryptoInfo)
 
               let { totalDue, rate } = invoiceTx.cryptoInfo.filter(cryptoData => {
                 return cryptoData.cryptoCode === requestedPaymentCurrency
@@ -530,7 +533,7 @@ app.post(CONFIG.apiVersionPrefix + '/activateAccount', function (req, res) {
           })
         })
         .catch((err) => {
-          console.log('kylan00Error creating invoice:', err)
+          console.log('Error creating invoice:', err)
           res.status(500).send({message: 'error creating invoice', error: err})
         })
     })
@@ -735,7 +738,6 @@ async function queryAccountName () {
   //   })
   // })
 
-  // kylan fix
   const accounts = await hyperionRpc.get_key_accounts(publicKey)
   console.log('queryAccountName accounts is: ', accounts)
 
@@ -764,8 +766,8 @@ async function eosAccountCreateAndBuyBw (newAccountName, ownerPubKey, activePubK
       from: creatorAccountName,
       // receiver: 'edgytestey43',
       receiver: newAccountName,
-      stake_net_quantity: `${Number(stakeNetQuantity).toFixed(4)} TLOS`,
-      stake_cpu_quantity: `${Number(stakeCpuQuantity).toFixed(4)} TLOS`,
+      stake_net_quantity: `${Number(stakeNetQuantity).toFixed(4)} ${CURRENCY_CODE}`,
+      stake_cpu_quantity: `${Number(stakeCpuQuantity).toFixed(4)} ${CURRENCY_CODE}`,
       transfer: 0
     }
     console.log('delegateBwOptions: ', delegateBwOptions)
@@ -795,8 +797,7 @@ async function eosAccountCreateAndBuyBw (newAccountName, ownerPubKey, activePubK
 function getBtcPayClient () {
   let client
   try {
-    const keypair = btcpay.crypto.load_keypair(Buffer.from("1f3ad04df972593d8de26a33faf852361bc097ecc5471b0e057868fa04fb3595", 'hex'))
-    client = new btcpay.BTCPayClient('https://btcpay.teloscrew.com', keypair, {merchant: "6wEpWvJkAzump9cibtW6uw3knqrHyqCjk88f7btw7rAs"})
+    const client = new btcpay.BTCPayClient(`https://${CONFIG.btcpayServerHostName}`, keypair, {merchant: merchantKey})
 
   } catch (e) {
     throw new Error('Error in getBtcPayClient: ', e)

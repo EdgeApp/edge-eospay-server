@@ -69,7 +69,9 @@
     "lint": "standard '*.js' 'src/**/*.js' && npm run flow",
     "test": "npm run lint && mocha",
     "precommit": "npm run lint",
-    "start": "tsc || true && node dist/eos-name-server.js",
+    "start:tlos": "tsc || true && node dist/eos-name-server.js tlos",
+    "start:eos": "tsc || true && node dist/eos-name-server.js tlos",
+    "start": "npm run start:eos",
     "watch": "npm run dev-watch-eos",
     "dev-watch-eos": "npx nodemon --exec \"tsc && true\" src/eos-name-server.js"
   }
