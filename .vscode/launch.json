@@ -6,16 +6,30 @@
   "configurations": [
 
 
+
     {
       "type": "node",
       "request": "launch",
-      "name": "Launch Program",
+      "name": "EOS: Launch Program",
       "skipFiles": [
         "<node_internals>/**"
       ],
       "program": "${workspaceFolder}/src/eos-name-server.ts",
       "outFiles": ["${workspaceFolder}/dist/**/*.js"],
-      "preLaunchTask": "tsc"
+      "preLaunchTask": "tsc",
+      "args": ["eos"]
+    },
+    {
+      "type": "node",
+      "request": "launch",
+      "name": "TLOS: Launch Program",
+      "skipFiles": [
+        "<node_internals>/**"
+      ],
+      "program": "${workspaceFolder}/src/eos-name-server.ts",
+      "outFiles": ["${workspaceFolder}/dist/**/*.js"],
+      "preLaunchTask": "tsc",
+      "args": ["tlos"]
     },
     {
       "type": "node",
