@@ -22,6 +22,7 @@ import {
   updateExchangeRates,
   getLatestEosActivationPriceInSelectedCryptoCurrency
 } from './exchangeRates'
+import axios from 'axios'
 
 const CONFIG = require(`../config/serverConfig`)
 
@@ -105,13 +106,18 @@ async function init () {
 
   try {
     for (const chain in chains) {
-      const accountNameResults = await queryAccountName(chain, chains[chain].activationPublicKey)
-      const accountName = accountNameResults.account_names[0]
-      const accountTokens: GetTokens = await chains[chain].hyperionRpc.get_tokens(accountName)
+      const { API_ENDPOINT, HYPERION_ENDPOINT } = chains[chain]
+      const accountNameResults = await axios.post(`${API_ENDPOINT}/v1/history/get_key_accounts`, {
+        public_key: chains[chain].activationPublicKey
+      })
+      const [ accountName ] = accountNameResults.data.account_names
+      const accountTokensResponse = await axios.get(`${HYPERION_ENDPOINT}/v2/state/get_tokens?account=${accountName}`)
+      const { tokens } = accountTokensResponse.data
       const currencyCode = chain.toUpperCase()
-      const primaryToken = accountTokens.tokens.find(token => {
+      const primaryToken = tokens.find(token => {
         return token.symbol === currencyCode
       })
+      if(!primaryToken) throw new Error(`No primary tokens in creation account for ${currencyCode}`)
     }
 
 
