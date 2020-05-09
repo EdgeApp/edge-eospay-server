@@ -49,7 +49,7 @@ for (const chain in chains) {
 const ENV = {
   clientPrivateKey: null,
   merchantData: null,
-  port: process.env.PORT || 80
+  port: process.env.PORT || 3873
 }
 
 let creatorAccountName
