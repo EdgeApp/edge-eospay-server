@@ -52,7 +52,6 @@ const ENV = {
   port: process.env.PORT || 3873
 }
 
-let creatorAccountName
 let app
 let credentials = {}
 
@@ -111,6 +110,7 @@ async function init () {
         public_key: chains[chain].activationPublicKey
       })
       const [ accountName ] = accountNameResults.data.account_names
+      chains[chain].creatorAccountName = accountName
       const accountTokensResponse = await axios.get(`${HYPERION_ENDPOINT}/v2/state/get_tokens?account=${accountName}`)
       const { tokens } = accountTokensResponse.data
       const currencyCode = chain.toUpperCase()
@@ -159,6 +159,7 @@ async function init () {
   const nanoDb = nano(CONFIG.dbFullpath)
   console.log('CONFIG.dbFullpath: ', CONFIG.dbFullpath)
   invoiceTxDb = nanoDb.db.use('invoice_tx')
+  // console.log('invoiceTxDb is: ', invoiceTxDb)
 
   try {
     console.log('DB check & init')
@@ -475,7 +476,7 @@ app.post(CONFIG.apiVersionPrefix + '/activateAccount', function (req, res) {
     getLatestEosActivationPriceInSelectedCryptoCurrency(requestedPaymentCurrency).then(eosActivationFeeInSelectedCryptoUSD => {
       // createInvoice for payment & setup watcher
       const client = getBtcPayClient()
-      console.log('if not /activateAccount?, client is: ', client)
+      // console.log('if not /activateAccount?, client is: ', client)
       client.create_invoice({
         price: eosActivationFeeInSelectedCryptoUSD,
         currency: 'USD',
@@ -485,7 +486,7 @@ app.post(CONFIG.apiVersionPrefix + '/activateAccount', function (req, res) {
         physical: false
       }) // should have token?
         .then((invoice) => {
-          console.log('invoice: ', invoice)
+          // console.log('invoice: ', invoice)
 
           invoiceTx = formatCleanupInvoiceData(invoice)
 
@@ -510,7 +511,7 @@ app.post(CONFIG.apiVersionPrefix + '/activateAccount', function (req, res) {
               console.log('invoiceTxDB error:', err)
               res.status(500).send({message: 'Error saving transaction', error: err})
             } else {
-              console.log('invoiceTx.cryptoInfo: ', invoiceTx.cryptoInfo)
+              // console.log('invoiceTx.cryptoInfo: ', invoiceTx.cryptoInfo)
 
               let { totalDue, rate } = invoiceTx.cryptoInfo.filter(cryptoData => {
                 return cryptoData.cryptoCode === requestedPaymentCurrency
@@ -542,11 +543,15 @@ app.post(CONFIG.apiVersionPrefix + '/activateAccount', function (req, res) {
 
 app.post(CONFIG.apiVersionPrefix + '/invoiceNotificationEvent', function (req, res) {
   console.log('/invoiceNotificationEvent:body', req.body)
-
-  const invoiceId = typeof (req.body) === 'object' && req.body.data && req.body.data.id
+  console.log('req.body.data: ', req.body.data, ' req.body.data.id:' , (req.body.data && req.body.data.id), 'req.body.id: ', req.body.id)
+  // not sure why callback request body has different structure...?
+  const invoiceId = req.body && (req.body.id || (req.body.data && req.body.data.id))
   const btcpayInvoiceEventCode = typeof (req.body) === 'object' && req.body.event && req.body.event.code
+  console.log('btcpayInvoiceEventCode:', btcpayInvoiceEventCode)
   const btcpayInvoiceEventName = typeof (req.body) === 'object' && req.body.event && req.body.event.name
+  console.log('btcpayInvoiceEventName: ', btcpayInvoiceEventName)
   const invoiceEventData = formatCleanupInvoiceData(typeof (req.body) === 'object' && (req.body.data || req.body))
+  console.log('invoiceEventData: ', invoiceEventData)
   let invoiceTx = {}
   let _doUpdate = false
   const responseObject = {
@@ -596,7 +601,8 @@ app.post(CONFIG.apiVersionPrefix + '/invoiceNotificationEvent', function (req, r
   // console.log('invoiceEventData: ', invoiceEventData)
 
   invoiceTxDb.get(invoiceId, (err, invoiceData) => {
-    console.log('getting invoiceId, invoiceId is: ', invoiceId, ' and invoiceData is: ', invoiceData)
+    console.log('getting invoiceId, invoiceId is: ', invoiceId)
+    // console.log('invoiceData is: ', invoiceData)
     if (err) {
       console.log(getErrorObject('InvoiceTxDbError', 'Failure retrieving invoice from database on btcpay notification.', err))
     } else {
@@ -635,13 +641,15 @@ app.post(CONFIG.apiVersionPrefix + '/invoiceNotificationEvent', function (req, r
 
         case 1005: // invoice_confirmed
           // invoke eos broadcast call
+          console.log('INVOICE CONFIRMED')
           _doUpdate = true
           const { requestedAccountName, ownerPublicKey, activePublicKey, requestedAccountCurrencyCode } = invoiceData
+          const chain = requestedAccountCurrencyCode.toLowerCase()
           eosAccountCreateAndBuyBw(requestedAccountName, ownerPublicKey, activePublicKey, requestedAccountCurrencyCode)
             .then(result => {
               // to-do need to specify which currency's eosjs (eos) using in next line
               console.log('eosAccountCreateAndBuyBw result: ', result)
-              chains[requestedAccountCurrencyCode].eosJsInstance.getAccount({account_name: creatorAccountName})
+              chains[chain].eosJsInstance.getAccount({account_name: chains[chain].creatorAccountName})
                 .then(creatorAccountResult => console.log('eos creatorAccountName post transaction info: ', creatorAccountResult))
                 .catch(error => console.log('*************Error in getAccount: ', error))
               btcPayNotificationResponse.ok()
@@ -724,27 +732,20 @@ httpsServer.listen(8003, () => {
  *           \/        \/         \/                \/         \/        \/
  */
 
-async function queryAccountName (chain: string, publicKey: string) {
-  // ///////////////////////////////////////////////////
-  // Query for account name
-
-  const accounts = await chains[chain].hyperionRpc.get_key_accounts(publicKey)
-  if (accounts.account_names && accounts.account_names.length > 0) {
-    creatorAccountName = accounts.account_names[0]
-  }
-  console.log(`${chain} creatorAccountName: ${creatorAccountName}`)
-
-  return accounts
-}
-
 async function eosAccountCreateAndBuyBw (newAccountName, ownerPubKey, activePubKey, requestedAccountCurrencyCode) {
+  const chain = requestedAccountCurrencyCode.toLowerCase()
+  const { creatorAccountName } = chains[chain]
+  let { net, ram, cpu } = CONFIG.eosAccountActivationStartingBalances
+  ram = Number(ram) || 8192
   // ///////////////////////////////////////////////////
   // Buy CPU and RAM
+  console.log('newAccountName:', newAccountName, 'ownerPubKey: ', ownerPubKey, 'activePubKey: ', activePubKey, 'requestedAccountCurrencyCode: ', requestedAccountCurrencyCode)
   console.log('eosAccountCreateAndBuyBw')
   // to-do need to specify which eosjs (eos) chain
-  return chains[requestedAccountCurrencyCode].eosJsInstance.transaction(tr => {
+  return chains[chain].eosJsInstance.transaction(tr => {
+    // console.log('transaction is: ', tr)
     const eosPricingResponse = currentEosSystemRates.data
-
+    console.log('eosPricingResponse: ', eosPricingResponse)
     //apply minimum staked EOS amounts from Configs
     let stakeNetQuantity = bns.lt(bns.mul(eosPricingResponse.net, net), CONFIG.eosAccountActivationStartingBalances.minimumNetEOSStake) ? CONFIG.eosAccountActivationStartingBalances.minimumNetEOSStake : bns.mul(eosPricingResponse.net, net)
     let stakeCpuQuantity = bns.lt(bns.mul(eosPricingResponse.cpu, cpu),CONFIG.eosAccountActivationStartingBalances.minimumCpuEOSStake) ? CONFIG.eosAccountActivationStartingBalances.minimumCpuEOSStake : bns.mul(eosPricingResponse.cpu, cpu)
@@ -754,8 +755,8 @@ async function eosAccountCreateAndBuyBw (newAccountName, ownerPubKey, activePubK
       from: creatorAccountName,
       // receiver: 'edgytestey43',
       receiver: newAccountName,
-      stake_net_quantity: `${Number(stakeNetQuantity).toFixed(4)} ${CURRENCY_CODE}`,
-      stake_cpu_quantity: `${Number(stakeCpuQuantity).toFixed(4)} ${CURRENCY_CODE}`,
+      stake_net_quantity: `${Number(stakeNetQuantity).toFixed(4)} ${requestedAccountCurrencyCode}`,
+      stake_cpu_quantity: `${Number(stakeCpuQuantity).toFixed(4)} ${requestedAccountCurrencyCode}`,
       transfer: 0
     }
     console.log('delegateBwOptions: ', delegateBwOptions)
@@ -766,19 +767,20 @@ async function eosAccountCreateAndBuyBw (newAccountName, ownerPubKey, activePubK
       owner: ownerPubKey, // <------ the public key the of the new user account that was generate by a wallet tool or the eosjs-keygen
       active: activePubKey
     })
-
+    console.log('about to tr.delegatebw')
     tr.delegatebw(delegateBwOptions)
-
+    console.log('about to tr.buyrambytes')
     tr.buyrambytes({
       payer: creatorAccountName,
       receiver: newAccountName,
       bytes: ram
     })
+    console.log('just bought ram bytes')
   },
   {
     sign: true,
     broadcast: true,
-    keyProvider: [CONFIG.eosCreatorAccountPrivateKey]
+    keyProvider: [chains[chain].eosCreatorAccountPrivateKey]
   })
 }
 
