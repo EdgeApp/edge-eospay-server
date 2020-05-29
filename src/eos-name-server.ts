@@ -110,6 +110,7 @@ async function init () {
         public_key: chains[chain].activationPublicKey
       })
       const [ accountName ] = accountNameResults.data.account_names
+      console.log('creeatorAccountName: ', accountName)
       chains[chain].creatorAccountName = accountName
       const accountTokensResponse = await axios.get(`${HYPERION_ENDPOINT}/v2/state/get_tokens?account=${accountName}`)
       const { tokens } = accountTokensResponse.data

@@ -1,6 +1,6 @@
 import prices from '../cache/prices.json'
-import { getEosActivationFee, updateEosRates } from './eos-name-server'
-const rp = require('request-promise')
+import { getEosActivationFee } from './eos-name-server'
+const requestPromise = require('request-promise')
 const { bns } = require('biggystring')
 import { currentEosSystemRates, currentExchangeRates } from './common'
 const CURRENCY_CODE = 'tlos'
@@ -60,87 +60,36 @@ export async function updateExchangeRates () {
 export async function getLatestEosActivationPriceInSelectedCryptoCurrency (selectedCurrencyCode) {
   // updateCryptoPricing
 
-  const _getLatest = await new Promise((resolve, reject) => {
-    updateExchangeRates()
-      .then((cryptoPricing) => {
-        console.log(`getLatestEosActivationPriceInSelectedCryptoCurrency().cryptoPricing received ${cryptoPricing.data.length} cryptos`)
-        getEosActivationFee().then(eosActivationFee => {
-          const valuesInUSD = cryptoPricing.data
-            .filter((crypto) => {
-              return crypto.symbol === selectedCurrencyCode || crypto.symbol === 'EOS'
-            })
-            .map((crypto) => {
-              console.log({ [`${crypto.symbol}_USD`]: crypto.quote.USD.price.toString() })
-              return { [`${crypto.symbol}_USD`]: crypto.quote.USD.price.toString() }
-            })
-
-          console.log('valuesInUSD: ', JSON.stringify(valuesInUSD))
-
-
-          const eosActivationFeeInUSD = bns.mul(eosActivationFee, valuesInUSD.filter(element => !!element.EOS_USD)[0].EOS_USD)
-          const eosActivationFeeInSelectedCurrencyCode = bns.div(valuesInUSD.filter(element => !!element.EOS_USD)[0].EOS_USD, valuesInUSD.filter(element => !!element[`${selectedCurrencyCode}_USD`])[0][`${selectedCurrencyCode}_USD`], 10, 12)
-
-          console.log('eosActivationFee: ', eosActivationFee)
-          console.log('eosActivationFee in USD: ', eosActivationFeeInUSD)
-          console.log(`calculated eosActivationFee in : ${selectedCurrencyCode}: `, eosActivationFeeInSelectedCurrencyCode)
-          resolve(eosActivationFeeInUSD)
-        })
-          .catch(error => {
-            console.log('getEosActivationFee().error:')
-            console.log('getEosActivationFee().error: ', error)
-            reject(error)
-          })
+  try {
+    const cryptoPricing = await updateExchangeRates()
+    console.log(`getLatestEosActivationPriceInSelectedCryptoCurrency().cryptoPricing received ${cryptoPricing.data.length} cryptos`)
+    const eosActivationFee = await getEosActivationFee()
+    const valuesInUSD = cryptoPricing.data
+      .filter((crypto) => {
+        return crypto.symbol === selectedCurrencyCode || crypto.symbol === 'EOS'
       })
-      .catch((error) => {
-        console.log('getEosActivationFee().error2:')
-        console.log('getLatestEosActivationPriceInSelectedCryptoCurrency().error: ', error)
-        reject(error)
+      .map((crypto) => {
+        console.log({ [`${crypto.symbol}_USD`]: crypto.quote.USD.price.toString() })
+        return { [`${crypto.symbol}_USD`]: crypto.quote.USD.price.toString() }
       })
-  })
 
-  return _getLatest
+    console.log('valuesInUSD: ', JSON.stringify(valuesInUSD))
+    const eosActivationFeeInUSD = bns.mul(eosActivationFee, valuesInUSD.filter(element => !!element.EOS_USD)[0].EOS_USD)
+    const eosActivationFeeInSelectedCurrencyCode = bns.div(valuesInUSD.filter(element => !!element.EOS_USD)[0].EOS_USD, valuesInUSD.filter(element => !!element[`${selectedCurrencyCode}_USD`])[0][`${selectedCurrencyCode}_USD`], 10, 12)
+
+    console.log('eosActivationFee: ', eosActivationFee)
+    console.log('eosActivationFee in USD: ', eosActivationFeeInUSD)
+    console.log(`calculated eosActivationFee in : ${selectedCurrencyCode}: `, eosActivationFeeInSelectedCurrencyCode)
+    const _getLatest = eosActivationFeeInUSD
+    return _getLatest
+  } catch (e) {
+    console.log('getEosActivationFee().error: ', error)
+  }
 }
 
-async function getEosActivationFee () {
-  //requests current ram, net, cpu prices IN EOS from configured latest eosRates data provided from CONFIG.eosPricingRatesURL
-  const getFee = await new Promise((resolve, reject) => {
-    updateEosRates()
-      .then(eosRates => {
-        const eosPricingResponse = eosRates.data
-
-        //apply minimum staked EOS amounts from Configs
-
-        const net = CONFIG.eosAccountActivationStartingBalances.net
-        const cpu = CONFIG.eosAccountActivationStartingBalances.cpu
-        const netStakeMinimum = CONFIG.eosAccountActivationStartingBalances.minimumNetEOSStake
-        const cpuStakeMinimum = CONFIG.eosAccountActivationStartingBalances.minimumCpuEOSStake
-
-        let stakeNetQuantity = Number(bns.mul(eosPricingResponse.net, net)).toFixed(4) < Number(netStakeMinimum) ? Number(netStakeMinimum).toFixed(4) : Number(bns.mul(eosPricingResponse.net, net)).toFixed(4)
-        let stakeCpuQuantity = Number(bns.mul(eosPricingResponse.cpu, cpu)).toFixed(4) < Number(cpuStakeMinimum) ? Number(cpuStakeMinimum).toFixed(4) : Number(bns.mul(eosPricingResponse.cpu, cpu)).toFixed(4)
-
-        console.log (`stakeNetQuantity: ${stakeNetQuantity}`)
-        console.log (`stakeCpuQuantity: ${stakeCpuQuantity}`)
-
-        const totalEos = bns.add(
-          bns.add(
-            bns.mul(eosPricingResponse.ram, bns.div(CONFIG.eosAccountActivationStartingBalances.ram, '1000', 10, 3)),
-            stakeNetQuantity.toString()
-          ),
-          stakeCpuQuantity.toString()
-        )
-
-        console.log(`totalEos: ${totalEos}`)
-        // change value later
-        resolve('1')
-      })
-      .catch(error => console.log('Error in getEosActivationFee()', error))
-  })
-
-  return getFee
-}
-
-async function updateEosRates () {
-  const doUpdate = await new Promise(async (resolve, reject) => {
+export async function updateEosRates () {
+  let rates
+  try {
     let now = new Date()
     if (now.getTime() - currentEosSystemRates.lastUpdated >= CONFIG.cryptoPricing.updateFrequencyMs) {
       const requestOptions = {
@@ -149,25 +98,55 @@ async function updateEosRates () {
         json: true,
         gzip: true
       }
-
-      try {
-        const eosPricingResponse = await rp(requestOptions)
-        now = new Date()
-        console.log('eosPricingResponse: ', eosPricingResponse)
-        console.log(1)
-        currentEosSystemRates.lastUpdated = now.getTime()
-        console.log(2)
-        currentEosSystemRates.data = eosPricingResponse
-        console.log(3)
-        resolve(currentEosSystemRates)
-      } catch (e) {
-        console.log('Error in eos pricing: ', error)
-        reject(error)
-      }
-    } else {
-      resolve(currentEosSystemRates)
+      const eosPricingResponse = await requestPromise(requestOptions)
+      now = new Date()
+      console.log('eosPricingResponse: ', eosPricingResponse)
+      currentEosSystemRates.lastUpdated = now.getTime()
+      currentEosSystemRates.data = eosPricingResponse
+      rates = currentEosSystemRates
+      return rates
     }
-  })
+  } catch (error) {
+    console.log('Error in eos pricing: ', error)
+    // reject(error)
+  }
+}
 
-  return doUpdate
+// returns "234.234234", # of token units
+async function getEosActivationFee (): string {
+  console.log(1)
+  //requests current ram, net, cpu prices IN EOS from configured latest eosRates data provided from CONFIG.eosPricingRatesURL
+  try {
+    console.log(2)
+    const eosRates = await updateEosRates()
+    console.log(3)
+    const eosPricingResponse = eosRates.data
+
+    //apply minimum staked EOS amounts from Configs
+
+    const net = CONFIG.eosAccountActivationStartingBalances.net
+    const cpu = CONFIG.eosAccountActivationStartingBalances.cpu
+    const netStakeMinimum = CONFIG.eosAccountActivationStartingBalances.minimumNetEOSStake
+    const cpuStakeMinimum = CONFIG.eosAccountActivationStartingBalances.minimumCpuEOSStake
+
+    let stakeNetQuantity = Number(bns.mul(eosPricingResponse.net, net)).toFixed(4) < Number(netStakeMinimum) ? Number(netStakeMinimum).toFixed(4) : Number(bns.mul(eosPricingResponse.net, net)).toFixed(4)
+    let stakeCpuQuantity = Number(bns.mul(eosPricingResponse.cpu, cpu)).toFixed(4) < Number(cpuStakeMinimum) ? Number(cpuStakeMinimum).toFixed(4) : Number(bns.mul(eosPricingResponse.cpu, cpu)).toFixed(4)
+
+    console.log (`stakeNetQuantity: ${stakeNetQuantity}`)
+    console.log (`stakeCpuQuantity: ${stakeCpuQuantity}`)
+
+    const totalEos = bns.add(
+      bns.add(
+        bns.mul(eosPricingResponse.ram, bns.div(CONFIG.eosAccountActivationStartingBalances.ram, '1000', 10, 3)),
+        stakeNetQuantity.toString()
+      ),
+      stakeCpuQuantity.toString()
+    )
+
+    console.log(`totalEos: ${totalEos}`)
+    // change value later
+    return totalEos
+  } catch (e) {
+    console.log('Error in getEosActivationFee()', e)
+  }
 }
