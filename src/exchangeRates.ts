@@ -65,8 +65,6 @@ export async function updateExchangeRates() {
 export async function getLatestEosActivationPriceInSelectedCryptoCurrency(
   selectedCurrencyCode
 ) {
-  // updateCryptoPricing
-
   try {
     const cryptoPricing = await updateExchangeRates();
     console.log(
@@ -76,7 +74,7 @@ export async function getLatestEosActivationPriceInSelectedCryptoCurrency(
     const valuesInUSD = cryptoPricing.data
       .filter((crypto) => {
         return (
-          crypto.symbol === selectedCurrencyCode || crypto.symbol === "EOS"
+          crypto.symbol === selectedCurrencyCode
         );
       })
       .map((crypto) => {
