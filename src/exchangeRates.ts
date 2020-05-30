@@ -64,7 +64,8 @@ export async function updateExchangeRates() {
 
 
 export async function getLatestEosActivationPriceInSelectedCryptoCurrency(
-  selectedCurrencyCode
+  paymentCurrencyCode,
+  requestedAccountCurrencyCode = 'EOS'
 ) {
   try {
     // get exchange rates
@@ -78,7 +79,7 @@ export async function getLatestEosActivationPriceInSelectedCryptoCurrency(
     const valuesInUSD = cryptoPricing.data
       .filter((crypto) => {
         return (
-          crypto.symbol === selectedCurrencyCode || 'EOS'
+          crypto.symbol === paymentCurrencyCode || 'EOS'
         )
       })
       .map((crypto) => {
@@ -88,22 +89,22 @@ export async function getLatestEosActivationPriceInSelectedCryptoCurrency(
         return { [`${crypto.symbol}_USD`]: crypto.quote.USD.price.toString() }
       })
 
+    const chainRatePair = `${requestedAccountCurrencyCode}_USD`
     console.log("valuesInUSD: ", JSON.stringify(valuesInUSD))
-    const rate = valuesInUSD.find(element => element.EOS_USD)
-    const rateInUsd = rate.EOS_USD
+    const rate = valuesInUSD.find(element => element[chainRatePair])
+    const rateInUsd = rate[chainRatePair]
     const eosActivationFeeInUSD = bns.mul(eosActivationFee, rateInUsd)
-    const selectedCurrencyRate = valuesInUSD.find(element => element[`${selectedCurrencyCode}_USD`])
-    const selectedCurrencyRateInUSD = selectedCurrencyRate[`${selectedCurrencyCode}_USD`]
-    const eosActivationFeeInSelectedCurrencyCode = bns.div(rateInUsd, selectedCurrencyRateInUSD, 10, 12)
+    const selectedCurrencyRate = valuesInUSD.find(element => element[`${paymentCurrencyCode}_USD`])
+    const selectedCurrencyRateInUSD = selectedCurrencyRate[`${paymentCurrencyCode}_USD`]
+    const eosActivationFeeInpaymentCurrencyCode = bns.div(rateInUsd, selectedCurrencyRateInUSD, 10, 12)
 
     console.log("eosActivationFee: ", eosActivationFee)
     console.log("eosActivationFee in USD: ", eosActivationFeeInUSD)
     console.log(
-      `calculated eosActivationFee in : ${selectedCurrencyCode}: `,
-      eosActivationFeeInSelectedCurrencyCode // ie how much Bitcoin
+      `calculated eosActivationFee in : ${paymentCurrencyCode}: `,
+      eosActivationFeeInpaymentCurrencyCode // ie how much Bitcoin
     )
-    const _getLatest = eosActivationFeeInUSD
-    return _getLatest
+    return eosActivationFeeInUSD // returns USD cost of activation
   } catch (error) {
     console.log("getEosActivationFee().error: ", error)
   }
@@ -115,8 +116,12 @@ export async function getUpdatedEosRates() {
   let rates
   try {
     let now = new Date()
+    console.log('currentEosSystemRates: ', currentEosSystemRates)
+    const nowTime = now.getTime()
+    const lastSystemRatesUpdated = currentEosSystemRates.lastUpdated
+    const timeSinceLastUpdate = nowTime - lastSystemRatesUpdated
     if (
-      now.getTime() - currentEosSystemRates.lastUpdated >=
+      timeSinceLastUpdate >=
       cryptoPricing.updateFrequencyMs
     ) {
       const requestOptions = {
@@ -133,6 +138,7 @@ export async function getUpdatedEosRates() {
       rates = currentEosSystemRates
       return rates
     }
+    return currentEosSystemRates
   } catch (error) {
     console.log("Error in eos pricing: ", error)
     // reject(error)
@@ -182,7 +188,7 @@ async function getEosActivationFee(): string {
     console.log(`totalEos: ${totalEos}`)
     // change value later
     return totalEos
-  } catch (e) {
-    console.log("Error in getEosActivationFee()", e)
+  } catch (error) {
+    console.log("Error in getEosActivationFee()", error)
   }
 }

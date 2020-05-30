@@ -474,17 +474,18 @@ app.post(CONFIG.apiVersionPrefix + '/activateAccount', function (req, res) {
     res.status(500).send(errors)
   } else {
     // get latest pricing for invoice
-    getLatestEosActivationPriceInSelectedCryptoCurrency(requestedPaymentCurrency).then(eosActivationFeeInSelectedCryptoUSD => {
-      // createInvoice for payment & setup watcher
-      const client = getBtcPayClient()
-      // console.log('if not /activateAccount?, client is: ', client)
-      client.create_invoice({
-        price: eosActivationFeeInSelectedCryptoUSD,
-        currency: 'USD',
-        notificationEmail: CONFIG.invoiceNotificationEmailAddress || null,
-        notificationURL: CONFIG.invoiceNotificationURL || null,
-        extendedNotifications: true,
-        physical: false
+    getLatestEosActivationPriceInSelectedCryptoCurrency(requestedPaymentCurrency, body.requestedAccountCurrencyCode)
+      .then(eosActivationFeeInSelectedCryptoUSD => {
+        // createInvoice for payment & setup watcher
+        const client = getBtcPayClient()
+        // console.log('if not /activateAccount?, client is: ', client)
+        client.create_invoice({
+          price: eosActivationFeeInSelectedCryptoUSD,
+          currency: 'USD',
+          notificationEmail: CONFIG.invoiceNotificationEmailAddress || null,
+          notificationURL: CONFIG.invoiceNotificationURL || null,
+          extendedNotifications: true,
+          physical: false
       }) // should have token?
         .then((invoice) => {
           // console.log('invoice: ', invoice)
