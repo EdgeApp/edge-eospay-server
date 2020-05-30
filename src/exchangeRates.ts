@@ -1,22 +1,21 @@
-import prices from "../cache/prices.json"
+const currentExchangeRates = require('../cache/prices.json')
+const fs = require('fs')
 import { getEosActivationFee } from "./eos-name-server"
 const requestPromise = require("request-promise")
 const { bns } = require("biggystring")
 import { currentEosSystemRates, currentExchangeRates } from "./common"
-const CURRENCY_CODE = "tlos"
 const CONFIG = require(`../config/serverConfig`)
 
-// console.log('prices are: ', prices)
-
+// get recent fiat prices
 export async function updateExchangeRates() {
   const doUpdate = await new Promise((resolve, reject) => {
-    if (prices && prices.status && prices.status.timestamp) {
+    if (currentExchangeRates && currentExchangeRates.lastUpdated) {
       const now = new Date()
-      const lastUpdate = new Date(prices.status.timestamp).getTime()
+      const lastUpdate = new Date(currentExchangeRates.lastUpdated).getTime()
       // if it has not been over an hour
-      if (now < lastUpdate + 10000000 * 60 * 60) {
-        // resolve with semi-old prices
-        resolve(prices)
+      if (now < lastUpdate + 1000 * 60 * 60) {
+        // resolve with semi-old currentExchangeRates
+        resolve(currentExchangeRates)
       }
     }
     let now = new Date()
@@ -39,7 +38,7 @@ export async function updateExchangeRates() {
         gzip: true,
       }
 
-      rp(requestOptions)
+      requestPromise(requestOptions)
         .then((response) => {
           // console.log('API call response:', response)
           now = new Date()
@@ -66,7 +65,9 @@ export async function getLatestEosActivationPriceInSelectedCryptoCurrency(
   selectedCurrencyCode
 ) {
   try {
+    // get exchange rates
     const cryptoPricing = await updateExchangeRates()
+    fs.writeFileSync('cache/prices.json', JSON.stringify(cryptoPricing))
     console.log(
       `getLatestEosActivationPriceInSelectedCryptoCurrency().cryptoPricing received ${cryptoPricing.data.length} cryptos`
     )
@@ -74,7 +75,7 @@ export async function getLatestEosActivationPriceInSelectedCryptoCurrency(
     const valuesInUSD = cryptoPricing.data
       .filter((crypto) => {
         return (
-          crypto.symbol === selectedCurrencyCode
+          crypto.symbol === selectedCurrencyCode || 'EOS'
         )
       })
       .map((crypto) => {
@@ -106,22 +107,24 @@ export async function getLatestEosActivationPriceInSelectedCryptoCurrency(
     )
     const _getLatest = eosActivationFeeInUSD
     return _getLatest
-  } catch (e) {
+  } catch (error) {
     console.log("getEosActivationFee().error: ", error)
   }
 }
 
-export async function updateEosRates() {
+// get EOS / resource
+export async function getUpdatedEosRates() {
+  const { eosPricingRatesURL, cryptoPricing } = CONFIG
   let rates
   try {
     let now = new Date()
     if (
       now.getTime() - currentEosSystemRates.lastUpdated >=
-      CONFIG.cryptoPricing.updateFrequencyMs
+      cryptoPricing.updateFrequencyMs
     ) {
       const requestOptions = {
         method: "GET",
-        uri: CONFIG.eosPricingRatesURL,
+        uri: eosPricingRatesURL,
         json: true,
         gzip: true,
       }
@@ -142,51 +145,42 @@ export async function updateEosRates() {
 // returns "234.234234", # of token units
 async function getEosActivationFee(): string {
   console.log(1)
+  const { eosAccountActivationStartingBalances } = CONFIG
   //requests current ram, net, cpu prices IN EOS from configured latest eosRates data provided from CONFIG.eosPricingRatesURL
   try {
     console.log(2)
-    const eosRates = await updateEosRates()
+    const eosRates = await getUpdatedEosRates()
     console.log(3)
     const eosPricingResponse = eosRates.data
 
     //apply minimum staked EOS amounts from Configs
 
-    const net = CONFIG.eosAccountActivationStartingBalances.net
-    const cpu = CONFIG.eosAccountActivationStartingBalances.cpu
+    const startingNetBalance = eosAccountActivationStartingBalances.net
+    const startingCpuBalance = eosAccountActivationStartingBalances.cpu
+    // net staked EOS minimum
     const netStakeMinimum =
-      CONFIG.eosAccountActivationStartingBalances.minimumNetEOSStake
+      eosAccountActivationStartingBalances.minimumNetEOSStake
+    // CPU staked EOS minimum
     const cpuStakeMinimum =
-      CONFIG.eosAccountActivationStartingBalances.minimumCpuEOSStake
+      eosAccountActivationStartingBalances.minimumCpuEOSStake
 
-    let stakeNetQuantity =
-      Number(bns.mul(eosPricingResponse.net, net)).toFixed(4) <
-      Number(netStakeMinimum)
-        ? Number(netStakeMinimum).toFixed(4)
-        : Number(bns.mul(eosPricingResponse.net, net)).toFixed(4)
-    let stakeCpuQuantity =
-      Number(bns.mul(eosPricingResponse.cpu, cpu)).toFixed(4) <
-      Number(cpuStakeMinimum)
-        ? Number(cpuStakeMinimum).toFixed(4)
-        : Number(bns.mul(eosPricingResponse.cpu, cpu)).toFixed(4)
+    // EOS / unit of NET * NET = EOS
+    const amountEosFoStartingNet = Number(bns.mul(eosPricingResponse.net, startingNetBalance)).toFixed(4)
+    // take larger between minimum and staking start
+    let stakeNetQuantity = amountEosFoStartingNet < Number(netStakeMinimum) ?
+      Number(netStakeMinimum).toFixed(4) : amountEosFoStartingNet
+
+    const amountEosForStartingCpu = Number(bns.mul(eosPricingResponse.cpu, startingCpuBalance)).toFixed(4)
+    // take larger between minimum and staking start
+    let stakeCpuQuantity = amountEosForStartingCpu < Number(cpuStakeMinimum)
+        ? Number(cpuStakeMinimum).toFixed(4) : amountEosForStartingCpu
 
     console.log(`stakeNetQuantity: ${stakeNetQuantity}`)
     console.log(`stakeCpuQuantity: ${stakeCpuQuantity}`)
 
-    const totalEos = bns.add(
-      bns.add(
-        bns.mul(
-          eosPricingResponse.ram,
-          bns.div(
-            CONFIG.eosAccountActivationStartingBalances.ram,
-            "1000",
-            10,
-            3
-          )
-        ),
-        stakeNetQuantity.toString()
-      ),
-      stakeCpuQuantity.toString()
-    )
+    const quantityRam = bns.div(eosAccountActivationStartingBalances.ram, '1000', 10, 3)
+    const stakeRamEosQuantity = bns.mul(eosPricingResponse.ram, quantityRam)
+    const totalEos = bns.add(bns.add(stakeRamEosQuantity, stakeNetQuantity), stakeCpuQuantity)
 
     console.log(`totalEos: ${totalEos}`)
     // change value later
