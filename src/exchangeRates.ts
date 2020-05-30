@@ -61,12 +61,15 @@ export async function updateExchangeRates() {
   return doUpdate
 }
 
+
+
 export async function getLatestEosActivationPriceInSelectedCryptoCurrency(
   selectedCurrencyCode
 ) {
   try {
     // get exchange rates
     const cryptoPricing = await updateExchangeRates()
+    cryptoPricing.data.push({ "symbol": "TLOS", quote: { USD: { price: 0.02 }} })
     fs.writeFileSync('cache/prices.json', JSON.stringify(cryptoPricing))
     console.log(
       `getLatestEosActivationPriceInSelectedCryptoCurrency().cryptoPricing received ${cryptoPricing.data.length} cryptos`
@@ -86,24 +89,18 @@ export async function getLatestEosActivationPriceInSelectedCryptoCurrency(
       })
 
     console.log("valuesInUSD: ", JSON.stringify(valuesInUSD))
-    const eosActivationFeeInUSD = bns.mul(
-      eosActivationFee,
-      valuesInUSD.filter((element) => !!element.EOS_USD)[0].EOS_USD
-    )
-    const eosActivationFeeInSelectedCurrencyCode = bns.div(
-      valuesInUSD.filter((element) => !!element.EOS_USD)[0].EOS_USD,
-      valuesInUSD.filter(
-        (element) => !!element[`${selectedCurrencyCode}_USD`]
-      )[0][`${selectedCurrencyCode}_USD`],
-      10,
-      12
-    )
+    const rate = valuesInUSD.find(element => element.EOS_USD)
+    const rateInUsd = rate.EOS_USD
+    const eosActivationFeeInUSD = bns.mul(eosActivationFee, rateInUsd)
+    const selectedCurrencyRate = valuesInUSD.find(element => element[`${selectedCurrencyCode}_USD`])
+    const selectedCurrencyRateInUSD = selectedCurrencyRate[`${selectedCurrencyCode}_USD`]
+    const eosActivationFeeInSelectedCurrencyCode = bns.div(rateInUsd, selectedCurrencyRateInUSD, 10, 12)
 
     console.log("eosActivationFee: ", eosActivationFee)
     console.log("eosActivationFee in USD: ", eosActivationFeeInUSD)
     console.log(
       `calculated eosActivationFee in : ${selectedCurrencyCode}: `,
-      eosActivationFeeInSelectedCurrencyCode
+      eosActivationFeeInSelectedCurrencyCode // ie how much Bitcoin
     )
     const _getLatest = eosActivationFeeInUSD
     return _getLatest
