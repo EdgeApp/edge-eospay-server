@@ -68,6 +68,7 @@ export async function getLatestEosActivationPriceInSelectedCryptoCurrency(
   requestedAccountCurrencyCode = 'EOS'
 ) {
   try {
+    const CURRENCY_CONFIG = CONFIG.chains[requestedAccountCurrencyCode.toLowerCase()]
     // get exchange rates
     const cryptoPricing = await updateExchangeRates()
     cryptoPricing.data.push({ "symbol": "TLOS", quote: { USD: { price: 0.02 }} })
@@ -75,7 +76,7 @@ export async function getLatestEosActivationPriceInSelectedCryptoCurrency(
     console.log(
       `getLatestEosActivationPriceInSelectedCryptoCurrency().cryptoPricing received ${cryptoPricing.data.length} cryptos`
     )
-    const eosActivationFee = await getEosActivationFee()
+    const eosActivationFee = await getEosActivationFee(requestedAccountCurrencyCode)
     const valuesInUSD = cryptoPricing.data
       .filter((crypto) => {
         return (
@@ -104,6 +105,9 @@ export async function getLatestEosActivationPriceInSelectedCryptoCurrency(
       `calculated eosActivationFee in : ${paymentCurrencyCode}: `,
       eosActivationFeeInpaymentCurrencyCode // ie how much Bitcoin
     )
+    if (bns.gt(CURRENCY_CONFIG.minimumInvoiceAmountInUsd, eosActivationFeeInUSD)) {
+      return CURRENCY_CONFIG.minimumInvoiceAmountInUsd
+    }
     return eosActivationFeeInUSD // returns USD cost of activation
   } catch (error) {
     console.log("getEosActivationFee().error: ", error)
@@ -146,9 +150,9 @@ export async function getUpdatedEosRates() {
 }
 
 // returns "234.234234", # of token units
-async function getEosActivationFee(): string {
+async function getEosActivationFee(requestedAccountCurrencyCode = 'eos'): string {
   console.log(1)
-  const { eosAccountActivationStartingBalances } = CONFIG
+  const { eosAccountActivationStartingBalances } = CONFIG.chains[requestedAccountCurrencyCode.toLowerCase()]
   //requests current ram, net, cpu prices IN EOS from configured latest eosRates data provided from CONFIG.eosPricingRatesURL
   try {
     console.log(2)

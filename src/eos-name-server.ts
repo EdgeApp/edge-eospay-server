@@ -737,7 +737,8 @@ httpsServer.listen(8003, () => {
 async function eosAccountCreateAndBuyBw (newAccountName, ownerPubKey, activePubKey, requestedAccountCurrencyCode) {
   const chain = requestedAccountCurrencyCode.toLowerCase()
   const { creatorAccountName } = chains[chain]
-  let { net, ram, cpu } = CONFIG.eosAccountActivationStartingBalances
+  const CURRENCY_CONFIG = CONFIG[chain]
+  let { net, ram, cpu } = CURRENCY_CONFIG.eosAccountActivationStartingBalances
   ram = Number(ram) || 8192
   // ///////////////////////////////////////////////////
   // Buy CPU and RAM
@@ -749,8 +750,8 @@ async function eosAccountCreateAndBuyBw (newAccountName, ownerPubKey, activePubK
     const eosPricingResponse = currentEosSystemRates.data
     console.log('eosPricingResponse: ', eosPricingResponse)
     //apply minimum staked EOS amounts from Configs
-    let stakeNetQuantity = bns.lt(bns.mul(eosPricingResponse.net, net), CONFIG.eosAccountActivationStartingBalances.minimumNetEOSStake) ? CONFIG.eosAccountActivationStartingBalances.minimumNetEOSStake : bns.mul(eosPricingResponse.net, net)
-    let stakeCpuQuantity = bns.lt(bns.mul(eosPricingResponse.cpu, cpu),CONFIG.eosAccountActivationStartingBalances.minimumCpuEOSStake) ? CONFIG.eosAccountActivationStartingBalances.minimumCpuEOSStake : bns.mul(eosPricingResponse.cpu, cpu)
+    let stakeNetQuantity = bns.lt(bns.mul(eosPricingResponse.net, net), CURRENCY_CONFIG.eosAccountActivationStartingBalances.minimumNetEOSStake) ? CONFIG.eosAccountActivationStartingBalances.minimumNetEOSStake : bns.mul(eosPricingResponse.net, net)
+    let stakeCpuQuantity = bns.lt(bns.mul(eosPricingResponse.cpu, cpu), CURRENCY_CONFIG.eosAccountActivationStartingBalances.minimumCpuEOSStake) ? CONFIG.eosAccountActivationStartingBalances.minimumCpuEOSStake : bns.mul(eosPricingResponse.cpu, cpu)
 
 
     const delegateBwOptions = {
