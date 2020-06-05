@@ -1,0 +1,6 @@
+{
+  "script": "dist/eos-name-server.js",
+  "logFile": "./logs/forever.log",
+  "outFile": "./logs/out.log",
+  "errFile": "./logs/error.log"
+}

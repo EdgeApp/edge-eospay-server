@@ -105,9 +105,10 @@ export async function getLatestEosActivationPriceInSelectedCryptoCurrency(
       `calculated eosActivationFee in : ${paymentCurrencyCode}: `,
       eosActivationFeeInpaymentCurrencyCode // ie how much Bitcoin
     )
-    if (bns.gt(CURRENCY_CONFIG.minimumInvoiceAmountInUsd, eosActivationFeeInUSD)) {
-      return CURRENCY_CONFIG.minimumInvoiceAmountInUsd
-    }
+    // only used for setting minimum USD fee
+    // if (bns.gt(CURRENCY_CONFIG.minimumInvoiceAmountInUsd, eosActivationFeeInUSD)) {
+    //   return CURRENCY_CONFIG.minimumInvoiceAmountInUsd
+    // }
     return eosActivationFeeInUSD // returns USD cost of activation
   } catch (error) {
     console.log("getEosActivationFee().error: ", error)
