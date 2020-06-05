@@ -24,6 +24,7 @@
   "dependencies": {
     "@eoscafe/hyperion": "^3.2.4",
     "ajv": "^6.5.5",
+    "axios": "^0.19.2",
     "biggystring": "^1.1.10",
     "bitauth": "^0.3.2",
     "bitpay-rest": "^0.3.2",
@@ -68,6 +69,7 @@
     "lint:fix": "standard '*.js' 'src/**/*.js' --fix",
     "lint": "standard '*.js' 'src/**/*.js' && npm run flow",
     "test": "npm run lint && mocha",
+    "test1": "node src/test.js",
     "precommit": "npm run lint",
     "start": "tsc || true && forever start forever.json",
     "stop": "forever stop",

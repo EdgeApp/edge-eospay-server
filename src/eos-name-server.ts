@@ -110,6 +110,7 @@ async function init () {
         public_key: chains[chain].activationPublicKey
       })
       const [ accountName ] = accountNameResults.data.account_names
+      console.log('creeatorAccountName: ', accountName)
       chains[chain].creatorAccountName = accountName
       const accountTokensResponse = await axios.get(`${HYPERION_ENDPOINT}/v2/state/get_tokens?account=${accountName}`)
       const { tokens } = accountTokensResponse.data
@@ -370,6 +371,14 @@ app.get(CONFIG.apiVersionPrefix + '/rates/:baseCurrency?/:currency?', function (
     })
 })
 
+app.get(CONFIG.apiVersionPrefix + '/eosPrices/:currencyCode', function (req, res) {
+  console.log('req: ', req)
+  const { currencyCode } = req.params
+  const lowerCaseCurrencyCode = currencyCode.toLowerCase()
+  console.log('/eosPrices called: ', CONFIG.chains[lowerCaseCurrencyCode].resourcePrices)
+  res.status(200).send(CONFIG.chains[lowerCaseCurrencyCode].resourcePrices)
+})
+
 app.get(CONFIG.apiVersionPrefix + '/getSupportedCurrencies', function (req, res) {
   console.log('/getSupportedCurrencies called: ', CONFIG.supportedCurrencies)
   res.status(200).send(CONFIG.supportedCurrencies)
@@ -473,17 +482,18 @@ app.post(CONFIG.apiVersionPrefix + '/activateAccount', function (req, res) {
     res.status(500).send(errors)
   } else {
     // get latest pricing for invoice
-    getLatestEosActivationPriceInSelectedCryptoCurrency(requestedPaymentCurrency).then(eosActivationFeeInSelectedCryptoUSD => {
-      // createInvoice for payment & setup watcher
-      const client = getBtcPayClient()
-      // console.log('if not /activateAccount?, client is: ', client)
-      client.create_invoice({
-        price: eosActivationFeeInSelectedCryptoUSD,
-        currency: 'USD',
-        notificationEmail: CONFIG.invoiceNotificationEmailAddress || null,
-        notificationURL: CONFIG.invoiceNotificationURL || null,
-        extendedNotifications: true,
-        physical: false
+    getLatestEosActivationPriceInSelectedCryptoCurrency(requestedPaymentCurrency, body.requestedAccountCurrencyCode)
+      .then(eosActivationFeeInSelectedCryptoUSD => {
+        // createInvoice for payment & setup watcher
+        const client = getBtcPayClient()
+        // console.log('if not /activateAccount?, client is: ', client)
+        client.create_invoice({
+          price: eosActivationFeeInSelectedCryptoUSD,
+          currency: 'USD',
+          notificationEmail: CONFIG.invoiceNotificationEmailAddress || null,
+          notificationURL: CONFIG.invoiceNotificationURL || null,
+          extendedNotifications: true,
+          physical: false
       }) // should have token?
         .then((invoice) => {
           // console.log('invoice: ', invoice)
@@ -735,7 +745,8 @@ httpsServer.listen(8003, () => {
 async function eosAccountCreateAndBuyBw (newAccountName, ownerPubKey, activePubKey, requestedAccountCurrencyCode) {
   const chain = requestedAccountCurrencyCode.toLowerCase()
   const { creatorAccountName } = chains[chain]
-  let { net, ram, cpu } = CONFIG.eosAccountActivationStartingBalances
+  const CURRENCY_CONFIG = CONFIG[chain]
+  let { net, ram, cpu } = CURRENCY_CONFIG.eosAccountActivationStartingBalances
   ram = Number(ram) || 8192
   // ///////////////////////////////////////////////////
   // Buy CPU and RAM
@@ -747,8 +758,8 @@ async function eosAccountCreateAndBuyBw (newAccountName, ownerPubKey, activePubK
     const eosPricingResponse = currentEosSystemRates.data
     console.log('eosPricingResponse: ', eosPricingResponse)
     //apply minimum staked EOS amounts from Configs
-    let stakeNetQuantity = bns.lt(bns.mul(eosPricingResponse.net, net), CONFIG.eosAccountActivationStartingBalances.minimumNetEOSStake) ? CONFIG.eosAccountActivationStartingBalances.minimumNetEOSStake : bns.mul(eosPricingResponse.net, net)
-    let stakeCpuQuantity = bns.lt(bns.mul(eosPricingResponse.cpu, cpu),CONFIG.eosAccountActivationStartingBalances.minimumCpuEOSStake) ? CONFIG.eosAccountActivationStartingBalances.minimumCpuEOSStake : bns.mul(eosPricingResponse.cpu, cpu)
+    let stakeNetQuantity = bns.lt(bns.mul(eosPricingResponse.net, net), CURRENCY_CONFIG.eosAccountActivationStartingBalances.minimumNetEOSStake) ? CONFIG.eosAccountActivationStartingBalances.minimumNetEOSStake : bns.mul(eosPricingResponse.net, net)
+    let stakeCpuQuantity = bns.lt(bns.mul(eosPricingResponse.cpu, cpu), CURRENCY_CONFIG.eosAccountActivationStartingBalances.minimumCpuEOSStake) ? CONFIG.eosAccountActivationStartingBalances.minimumCpuEOSStake : bns.mul(eosPricingResponse.cpu, cpu)
 
 
     const delegateBwOptions = {
