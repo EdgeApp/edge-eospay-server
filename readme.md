@@ -152,7 +152,8 @@ Note:
 
 This mode is helpful because there are outputs in the startup scripts that will clue you in to the next steps if you're missing anything (like configs or key files).
 
-    sudo npm run dev-watch-eos
+    sudo tsc
+    sudo yarn start
 
 #### Launch server using `forever-service`
 :warning: It is highly recommended that you install npm & node using [nvm](https://github.com/creationix/nvm) so that you don't run into EACCESS or permission/sudo issues when using [forever](https://www.npmjs.com/package/forever) & [forever-service](https://www.npmjs.com/package/forever-service)
