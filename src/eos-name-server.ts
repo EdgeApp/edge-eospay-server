@@ -371,6 +371,14 @@ app.get(CONFIG.apiVersionPrefix + '/rates/:baseCurrency?/:currency?', function (
     })
 })
 
+app.get(CONFIG.apiVersionPrefix + '/eosPrices/:currencyCode', function (req, res) {
+  console.log('req: ', req)
+  const { currencyCode } = req.params
+  const lowerCaseCurrencyCode = currencyCode.toLowerCase()
+  console.log('/eosPrices called: ', CONFIG.chains[lowerCaseCurrencyCode].resourcePrices)
+  res.status(200).send(CONFIG.chains[lowerCaseCurrencyCode].resourcePrices)
+})
+
 app.get(CONFIG.apiVersionPrefix + '/getSupportedCurrencies', function (req, res) {
   console.log('/getSupportedCurrencies called: ', CONFIG.supportedCurrencies)
   res.status(200).send(CONFIG.supportedCurrencies)

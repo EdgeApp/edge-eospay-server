@@ -1,10 +1,10 @@
 const currentExchangeRates = require('../cache/prices.json')
 const fs = require('fs')
 import { getEosActivationFee } from "./eos-name-server"
+const CONFIG = require(`../config/serverConfig`)
 const requestPromise = require("request-promise")
 const { bns } = require("biggystring")
 import { currentEosSystemRates, currentExchangeRates } from "./common"
-const CONFIG = require(`../config/serverConfig`)
 
 // get recent fiat prices
 export async function updateExchangeRates() {
@@ -152,16 +152,13 @@ export async function getUpdatedEosRates() {
 // returns "234.234234", # of token units
 async function getEosActivationFee(requestedAccountCurrencyCode = 'eos'): string {
   console.log(1)
-  const { eosAccountActivationStartingBalances } = CONFIG.chains[requestedAccountCurrencyCode.toLowerCase()]
+  const requestedAccountCurrencyCodeLowerCase = requestedAccountCurrencyCode.toLowerCase()
+  const { eosAccountActivationStartingBalances } = CONFIG.chains[requestedAccountCurrencyCodeLowerCase]
   //requests current ram, net, cpu prices IN EOS from configured latest eosRates data provided from CONFIG.eosPricingRatesURL
   try {
-    console.log(2)
-    const eosRates = await getUpdatedEosRates()
-    console.log(3)
-    const eosPricingResponse = eosRates.data
+    const eosRates = CONFIG.chains[requestedAccountCurrencyCodeLowerCase].resourcePrices
 
     //apply minimum staked EOS amounts from Configs
-
     const startingNetBalance = eosAccountActivationStartingBalances.net
     const startingCpuBalance = eosAccountActivationStartingBalances.cpu
     // net staked EOS minimum
@@ -172,12 +169,13 @@ async function getEosActivationFee(requestedAccountCurrencyCode = 'eos'): string
       eosAccountActivationStartingBalances.minimumCpuEOSStake
 
     // EOS / unit of NET * NET = EOS
-    const amountEosFoStartingNet = Number(bns.mul(eosPricingResponse.net, startingNetBalance)).toFixed(4)
+
+    const amountEosFoStartingNet = Number(bns.mul(eosRates.net.toString(), startingNetBalance)).toFixed(4)
     // take larger between minimum and staking start
     let stakeNetQuantity = amountEosFoStartingNet < Number(netStakeMinimum) ?
       Number(netStakeMinimum).toFixed(4) : amountEosFoStartingNet
 
-    const amountEosForStartingCpu = Number(bns.mul(eosPricingResponse.cpu, startingCpuBalance)).toFixed(4)
+    const amountEosForStartingCpu = Number(bns.mul(eosRates.cpu.toString(), startingCpuBalance)).toFixed(4)
     // take larger between minimum and staking start
     let stakeCpuQuantity = amountEosForStartingCpu < Number(cpuStakeMinimum)
         ? Number(cpuStakeMinimum).toFixed(4) : amountEosForStartingCpu
@@ -185,8 +183,8 @@ async function getEosActivationFee(requestedAccountCurrencyCode = 'eos'): string
     console.log(`stakeNetQuantity: ${stakeNetQuantity}`)
     console.log(`stakeCpuQuantity: ${stakeCpuQuantity}`)
 
-    const quantityRam = bns.div(eosAccountActivationStartingBalances.ram, '1000', 10, 3)
-    const stakeRamEosQuantity = bns.mul(eosPricingResponse.ram, quantityRam)
+    const quantityRam = bns.div(eosAccountActivationStartingBalances.ram.toString(), '1000', 10, 3)
+    const stakeRamEosQuantity = bns.mul(eosRates.ram.toString(), quantityRam)
     const totalEos = bns.add(bns.add(stakeRamEosQuantity, stakeNetQuantity), stakeCpuQuantity)
 
     console.log(`totalEos: ${totalEos}`)
