@@ -7,19 +7,7 @@
     {
       "type": "node",
       "request": "launch",
-      "name": "EOS: Launch Program",
-      "skipFiles": [
-        "<node_internals>/**"
-      ],
-      "program": "${workspaceFolder}/src/eos-name-server.ts",
-      "outFiles": ["${workspaceFolder}/dist/**/*.js"],
-      "preLaunchTask": "tsc",
-      "args": ["eos"]
-    },
-    {
-      "type": "node",
-      "request": "launch",
-      "name": "TLOS: Launch Program",
+      "name": "Launch Program",
       "skipFiles": [
         "<node_internals>/**"
       ],
@@ -27,17 +15,6 @@
       "outFiles": ["${workspaceFolder}/dist/**/*.js"],
       "preLaunchTask": "tsc",
       "args": ["tlos"]
-    },
-    {
-      "type": "node",
-      "request": "launch",
-      "name": "Test Program",
-      "skipFiles": [
-        "<node_internals>/**"
-      ],
-      "program": "${workspaceFolder}/src/test.js",
-      // "outFiles": ["${workspaceFolder}/dist/**/*.js"],
-      // "preLaunchTask": "tsc"
     }
   ]
 }

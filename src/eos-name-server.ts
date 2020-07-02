@@ -33,7 +33,6 @@ const merchantData = JSON.parse(merchantFileData)
 const merchantKey = merchantData.merchant
 if (!merchantKey) throw new Error('No merchant key present!')
 const btcPayClient = new btcpay.BTCPayClient(`https://${CONFIG.btcpayServerHostName}`, keypair, {merchant: merchantKey})
-// console.log('btcPayClient: ', btcPayClient)
 
 const { ecc, format } = eosjs.modules
 
@@ -199,6 +198,7 @@ async function init () {
       cert: fs.readFileSync(CONFIG.serverSSLCertFilePath, 'utf8')
       // ca: fs.readFileSync(CONFIG.serverSSLCaCertFilePath, 'utf8')
     }
+    console.log('credentials: ', credentials)
   } catch (e) {
     console.log('Error reading server SSL data:', e)
   }
@@ -302,6 +302,11 @@ app.get(CONFIG.apiVersionPrefix + '/ ', function (req, res) {
   }
 })
 
+app.get(CONFIG.apiVersionPrefix + '/getSupportedCurrencies', function (req, res) {
+  console.log('/getSupportedCurrencies called: ', CONFIG.supportedCurrencies)
+  res.status(200).send(CONFIG.supportedCurrencies)
+})
+
 app.get(CONFIG.apiVersionPrefix + '/pairClientWithServer', function (req, res) {
   // BASED on https://support.bitpay.com/hc/en-us/articles/115003001183-How-do-I-pair-my-client-and-create-a-token-
   // the received code needs to be plugged in to the btcpay server admin console to complete the pairing operation
@@ -371,18 +376,19 @@ app.get(CONFIG.apiVersionPrefix + '/rates/:baseCurrency?/:currency?', function (
     })
 })
 
+app.get(CONFIG.apiVersionPrefix + '/tests', function (req, res) {
+  res.status(200).send({ test: true })
+})
+
 app.get(CONFIG.apiVersionPrefix + '/eosPrices/:currencyCode', function (req, res) {
-  console.log('req: ', req)
   const { currencyCode } = req.params
   const lowerCaseCurrencyCode = currencyCode.toLowerCase()
   console.log('/eosPrices called: ', CONFIG.chains[lowerCaseCurrencyCode].resourcePrices)
   res.status(200).send(CONFIG.chains[lowerCaseCurrencyCode].resourcePrices)
 })
-
-app.get(CONFIG.apiVersionPrefix + '/getSupportedCurrencies', function (req, res) {
-  console.log('/getSupportedCurrencies called: ', CONFIG.supportedCurrencies)
-  res.status(200).send(CONFIG.supportedCurrencies)
-})
+console.log('Time is: ', new Date())
+console.log('/eosPrices/TLOS called: ', CONFIG.chains.tlos.resourcePrices)
+console.log('/eosPrices/EOS called: ', CONFIG.chains.eos.resourcePrices)
 
 app.post(CONFIG.apiVersionPrefix + '/activateAccount', function (req, res) {
   // validate body
@@ -727,10 +733,6 @@ app.post(CONFIG.apiVersionPrefix + '/invoiceNotificationEvent', function (req, r
 
 httpServer.listen(ENV.port, () => {
   console.log(`HTTP Server running on port ${ENV.port}`)
-})
-
-httpsServer.listen(8003, () => {
-  console.log('HTTPS Server running on port 8003')
 })
 
 /***

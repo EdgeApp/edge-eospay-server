@@ -72,8 +72,8 @@
     "test": "npm run lint && mocha",
     "test1": "node src/test.js",
     "precommit": "npm run lint",
-    "start": "forever start --append forever.json",
-    "stop": "forever stop",
+    "start": "forever start --append ./forever.json",
+    "stop": "forever stopall",
     "watch": "npm run dev-watch-eos",
     "dev-watch-eos": "npx nodemon --exec \"tsc && true\" src/eos-name-server.js"
   }
