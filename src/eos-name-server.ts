@@ -390,6 +390,19 @@ console.log('Time is: ', new Date())
 console.log('/eosPrices/TLOS called: ', CONFIG.chains.tlos.resourcePrices)
 console.log('/eosPrices/EOS called: ', CONFIG.chains.eos.resourcePrices)
 
+app.get(CONFIG.apiVersionPrefix + '/startingResources/:currencyCode', function (req, res) {
+  const { currencyCode } = req.params
+  const lowerCaseCurrencyCode = currencyCode.toLowerCase()
+  const { eosAccountActivationStartingBalances } =  CONFIG.chains[lowerCaseCurrencyCode]
+  console.log('/startingResources called: ', eosAccountActivationStartingBalances)
+  const startingResourceNumbers = {
+    ram: parseInt(eosAccountActivationStartingBalances.ram) / 1000,
+    net: parseInt(eosAccountActivationStartingBalances.net),
+    cpu: parseInt(eosAccountActivationStartingBalances.cpu)
+  }
+  res.status(200).send(startingResourceNumbers)
+})
+
 app.post(CONFIG.apiVersionPrefix + '/activateAccount', function (req, res) {
   // validate body
   console.log('in POST /activatAccount')
