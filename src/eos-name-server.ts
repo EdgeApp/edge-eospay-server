@@ -53,7 +53,6 @@ const ENV = {
 }
 
 let app
-let credentials = {}
 
 /***
  *      _________________________ _________________________ _____________
@@ -192,12 +191,6 @@ async function init () {
   }
   // =============================================================================
 
-
-  try {
-    console.log('credentials: ', credentials)
-  } catch (e) {
-    console.log('Error reading server SSL data:', e)
-  }
 }
 
 init()
