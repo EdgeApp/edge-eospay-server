@@ -6,8 +6,10 @@ logs/
 test/
 config/
 cache/
+cache
 serverConfig.json
 serverConfig.js
 .envconfig
 
 .DS_Store
+yarn-error.log
