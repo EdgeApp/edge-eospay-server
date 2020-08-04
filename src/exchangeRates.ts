@@ -91,7 +91,7 @@ export async function getLatestEosActivationPriceInSelectedCryptoCurrency(
       })
 
     const chainRatePair = `${requestedAccountCurrencyCode}_USD`
-    console.log("valuesInUSD: ", JSON.stringify(valuesInUSD))
+    // console.log("valuesInUSD: ", JSON.stringify(valuesInUSD))
     const rate = valuesInUSD.find(element => element[chainRatePair])
     const rateInUsd = rate[chainRatePair]
     const eosActivationFeeInUSD = bns.mul(eosActivationFee, rateInUsd)

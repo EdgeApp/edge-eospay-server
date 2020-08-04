@@ -43,12 +43,14 @@ for (const chain in chains) {
   chains[chain].hyperionRpc = new JsonRpc(CONFIG.chains[chain].hyperionEndpoint, { fetch })
   chains[chain].activationPublicKey = ecc.privateToPublic(CONFIG.chains[chain].eosCreatorAccountPrivateKey)
   chains[chain].eosJsInstance = eosjs(chains[chain].eosjsConfig)
+  console.log('Chain is: ', chain)
+  chains[chain].eosJsInstance.getInfo((error, result) => { console.log(error, result) })
 }
 
 const ENV = {
   clientPrivateKey: null,
   merchantData: null,
-  port: process.env.PORT || 3873
+  port: process.env.PORT || 8008
 }
 
 let app
@@ -193,11 +195,6 @@ async function init () {
 
 
   try {
-    credentials = {
-      key: fs.readFileSync(CONFIG.serverSSLKeyFilePath, 'utf8'),
-      cert: fs.readFileSync(CONFIG.serverSSLCertFilePath, 'utf8')
-      // ca: fs.readFileSync(CONFIG.serverSSLCaCertFilePath, 'utf8')
-    }
     console.log('credentials: ', credentials)
   } catch (e) {
     console.log('Error reading server SSL data:', e)
@@ -213,7 +210,6 @@ app.use(cors())
 
 // Starting both http & https servers
 const httpServer = http.createServer(app)
-const httpsServer = https.createServer(credentials, app)
 
 /***
  *    __________ ________   ____ _________________________ _________
@@ -503,6 +499,7 @@ app.post(CONFIG.apiVersionPrefix + '/activateAccount', function (req, res) {
     // get latest pricing for invoice
     getLatestEosActivationPriceInSelectedCryptoCurrency(requestedPaymentCurrency, body.requestedAccountCurrencyCode)
       .then(eosActivationFeeInSelectedCryptoUSD => {
+        console.log('getLatestEosActivationPriceInSelectedCryptoCurrency, requestedPaymentCurrency: ', requestedPaymentCurrency, 'body.requestedAccountCurrencyCode: ', body.requestedAccountCurrencyCode, 'eosActivationFeeInSelectedCryptoUSD: ', eosActivationFeeInSelectedCryptoUSD)
         // createInvoice for payment & setup watcher
         const client = getBtcPayClient()
         // console.log('if not /activateAccount?, client is: ', client)
@@ -770,49 +767,49 @@ async function eosAccountCreateAndBuyBw (newAccountName, ownerPubKey, activePubK
   // Buy CPU and RAM
   console.log('newAccountName:', newAccountName, 'ownerPubKey: ', ownerPubKey, 'activePubKey: ', activePubKey, 'requestedAccountCurrencyCode: ', requestedAccountCurrencyCode)
   console.log('eosAccountCreateAndBuyBw')
-  // to-do need to specify which eosjs (eos) chain
-  return chains[chain].eosJsInstance.transaction(tr => {
-    // console.log('transaction is: ', tr)
-    const eosPricingResponse = currentEosSystemRates.data
-    console.log('eosPricingResponse: ', eosPricingResponse)
-    //apply minimum staked EOS amounts from Configs
-    console.log('CURRENCY_CONFIG.eosAccountActivationStartingBalances.minimumNetEOSStake: ', CURRENCY_CONFIG.eosAccountActivationStartingBalances.minimumNetEOSStake)
-    let stakeNetQuantity = bns.lt(bns.mul(eosPricingResponse.net, net), CURRENCY_CONFIG.eosAccountActivationStartingBalances.minimumNetEOSStake) ? CURRENCY_CONFIG.eosAccountActivationStartingBalances.minimumNetEOSStake : bns.mul(eosPricingResponse.net, net)
-    console.log('stakeNetQuantity: ', stakeNetQuantity)
-    let stakeCpuQuantity = bns.lt(bns.mul(eosPricingResponse.cpu, cpu), CURRENCY_CONFIG.eosAccountActivationStartingBalances.minimumCpuEOSStake) ? CURRENCY_CONFIG.eosAccountActivationStartingBalances.minimumCpuEOSStake : bns.mul(eosPricingResponse.cpu, cpu)
+  try {
+
+    const result = await CONFIG.chains[chain].eosJsInstance.transaction(tr => {
+      // console.log('transaction is: ', tr)
+      const eosPricingResponse = currentEosSystemRates.data
+      console.log('eosPricingResponse: ', eosPricingResponse)
+      //apply minimum staked EOS amounts from Configs
+      console.log('CURRENCY_CONFIG.eosAccountActivationStartingBalances.minimumNetEOSStake: ', CURRENCY_CONFIG.eosAccountActivationStartingBalances.minimumNetEOSStake)
+      let stakeNetQuantity = bns.lt(bns.mul(eosPricingResponse.net, net), CURRENCY_CONFIG.eosAccountActivationStartingBalances.minimumNetEOSStake) ? CURRENCY_CONFIG.eosAccountActivationStartingBalances.minimumNetEOSStake : bns.mul(eosPricingResponse.net, net)
+      console.log('stakeNetQuantity: ', stakeNetQuantity)
+      let stakeCpuQuantity = bns.lt(bns.mul(eosPricingResponse.cpu, cpu), CURRENCY_CONFIG.eosAccountActivationStartingBalances.minimumCpuEOSStake) ? CURRENCY_CONFIG.eosAccountActivationStartingBalances.minimumCpuEOSStake : bns.mul(eosPricingResponse.cpu, cpu)
 
 
-    const delegateBwOptions = {
-      from: creatorAccountName,
-      // receiver: 'edgytestey43',
-      receiver: newAccountName,
-      stake_net_quantity: `${Number(stakeNetQuantity).toFixed(4)} ${requestedAccountCurrencyCode}`,
-      stake_cpu_quantity: `${Number(stakeCpuQuantity).toFixed(4)} ${requestedAccountCurrencyCode}`,
-      transfer: 0
-    }
-    console.log('delegateBwOptions: ', delegateBwOptions)
+      const delegateBwOptions = {
+        from: creatorAccountName,
+        // receiver: 'edgytestey43',
+        receiver: newAccountName,
+        stake_net_quantity: `${Number(stakeNetQuantity).toFixed(4)} ${requestedAccountCurrencyCode}`,
+        stake_cpu_quantity: `${Number(stakeCpuQuantity).toFixed(4)} ${requestedAccountCurrencyCode}`,
+        transfer: 0
+      }
 
-    tr.newaccount({
-      creator: creatorAccountName,
-      name: newAccountName,
-      owner: ownerPubKey, // <------ the public key the of the new user account that was generate by a wallet tool or the eosjs-keygen
-      active: activePubKey
+      tr.newaccount({
+        creator: creatorAccountName,
+        name: newAccountName,
+        owner: ownerPubKey, // <------ the public key the of the new user account that was generate by a wallet tool or the eosjs-keygen
+        active: activePubKey
+      })
+      tr.delegatebw(delegateBwOptions)
+      tr.buyrambytes({
+        payer: creatorAccountName,
+        receiver: newAccountName,
+        bytes: ram
+      })
+    },
+    {
+      sign: true,
+      broadcast: true
     })
-    console.log('about to tr.delegatebw')
-    tr.delegatebw(delegateBwOptions)
-    console.log('about to tr.buyrambytes')
-    tr.buyrambytes({
-      payer: creatorAccountName,
-      receiver: newAccountName,
-      bytes: ram
-    })
-    console.log('just bought ram bytes')
-  },
-  {
-    sign: true,
-    broadcast: true,
-    keyProvider: [chains[chain].eosCreatorAccountPrivateKey]
-  })
+    console.log('Account creation result: ', result)
+  } catch (error) {
+    console.log('Account activation FAIL, error: ', error)
+  }
 }
 
 function getBtcPayClient () {
