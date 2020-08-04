@@ -41,7 +41,6 @@
     "promisify-node": "^0.4.0",
     "random-js": "^1.0.8",
     "rimraf": "^2.6.2",
-    "secp256k1": "^3.8.0",
     "sprintf-js": "^1.1.1"
   },
   "devDependencies": {
@@ -70,11 +69,8 @@
     "lint:fix": "standard '*.js' 'src/**/*.js' --fix",
     "lint": "standard '*.js' 'src/**/*.js' && npm run flow",
     "test": "npm run lint && mocha",
-    "test1": "node src/test.js",
     "precommit": "npm run lint",
-    "start": "forever start --append ./forever.json",
-    "stop": "forever stopall",
-    "watch": "npm run dev-watch-eos",
+    "start": "node dist/eos-name-server.js",
     "dev-watch-eos": "npx nodemon --exec \"tsc && true\" src/eos-name-server.js"
   }
 }

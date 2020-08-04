@@ -13,7 +13,6 @@ const fetch = require("isomorphic-fetch")
 import { GetTokens } from '@eoscafe/hyperion'
 const { JsonRpc } = require("@eoscafe/hyperion")
 import request from 'request-promise'
-const secp256k1 = require('secp256k1')
 import {
   currentEosSystemRates,
   currentCryptoListings
