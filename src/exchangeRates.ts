@@ -1,10 +1,15 @@
-const currentExchangeRates = require('../cache/prices.json')
 const fs = require('fs')
 import { getEosActivationFee } from "./eos-name-server"
 const CONFIG = require(`../config/serverConfig`)
 const requestPromise = require("request-promise")
 const { bns } = require("biggystring")
-import { currentEosSystemRates, currentExchangeRates } from "./common"
+import { currentEosSystemRates } from "./common"
+import axios from 'axios'
+
+const currentExchangeRates = {
+  lastUpdated: 0,
+  data: []
+}
 
 // get recent fiat prices
 export async function updateExchangeRates() {
@@ -13,11 +18,13 @@ export async function updateExchangeRates() {
       const now = new Date()
       const lastUpdate = new Date(currentExchangeRates.lastUpdated).getTime()
       // if it has not been over an hour
+      // starts off with empty data upon boot-up
       if (now < lastUpdate + 1000 * 60 * 60) {
         // resolve with semi-old currentExchangeRates
         resolve(currentExchangeRates)
       }
     }
+    // otherwise update with fetched pricing
     let now = new Date()
     if (
       now.getTime() - currentExchangeRates.lastUpdated >=
@@ -39,14 +46,26 @@ export async function updateExchangeRates() {
       }
 
       requestPromise(requestOptions)
-        .then((response) => {
+        .then(async (response) => {
           // console.log('API call response:', response)
           now = new Date()
 
           currentExchangeRates.lastUpdated = now.getTime()
           currentExchangeRates.data = response.data
-
-          // console.log('currentExchangeRates:', currentExchangeRates)
+          console.log('currentExchangeRates:', currentExchangeRates)
+          const telosRateReply = await axios(
+            'https://api.coingecko.com/api/v3/coins/telos?localization=false&tickers=false&market_data=true&community_data=false&developer_data=false&sparkline=false'
+          )
+          const telosRate = telosRateReply.data.market_data.current_price.usd
+          currentExchangeRates.data.push({
+            name: 'Telos',
+            quote: {
+              USD: {
+                price: telosRate
+              }
+            },
+            symbol: 'TLOS'
+          })
 
           resolve(currentExchangeRates)
         })
@@ -71,8 +90,6 @@ export async function getLatestEosActivationPriceInSelectedCryptoCurrency(
     const CURRENCY_CONFIG = CONFIG.chains[requestedAccountCurrencyCode.toLowerCase()]
     // get exchange rates
     const cryptoPricing = await updateExchangeRates()
-    cryptoPricing.data.push({ "symbol": "TLOS", quote: { USD: { price: 0.02 }} })
-    fs.writeFileSync('cache/prices.json', JSON.stringify(cryptoPricing))
     console.log(
       `getLatestEosActivationPriceInSelectedCryptoCurrency().cryptoPricing received ${cryptoPricing.data.length} cryptos`
     )

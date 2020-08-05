@@ -6,8 +6,3 @@ export const currentEosSystemRates = {
     cpu: '0.361380798274'
   }
 }
-
-export const currentExchangeRates = {
-  lastUpdated: 0,
-  data: []
-}
