@@ -1,4 +1,5 @@
-// @flow
+// This file takes the fetching of EOSIO resources prices out of info1 servers
+// and onto this repo
 
 const fetch = require('node-fetch')
 const { bns } = require('biggystring')
