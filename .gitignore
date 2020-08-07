@@ -5,8 +5,6 @@ dist/
 logs/
 test/
 config/
-cache/
-cache
 serverConfig.json
 serverConfig.js
 .envconfig
