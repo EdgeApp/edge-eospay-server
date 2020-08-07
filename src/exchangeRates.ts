@@ -3,7 +3,6 @@ import { getEosActivationFee } from "./eos-name-server"
 const CONFIG = require(`../config/serverConfig`)
 const requestPromise = require("request-promise")
 const { bns } = require("biggystring")
-import { currentEosSystemRates } from "./common"
 import axios from 'axios'
 
 const currentExchangeRates = {
@@ -129,41 +128,6 @@ export async function getLatestEosActivationPriceInSelectedCryptoCurrency(
     return eosActivationFeeInUSD // returns USD cost of activation
   } catch (error) {
     console.log("getEosActivationFee().error: ", error)
-  }
-}
-
-// get EOS / resource
-export async function getUpdatedEosRates() {
-  const { eosPricingRatesURL, cryptoPricing } = CONFIG
-  let rates
-  try {
-    let now = new Date()
-    console.log('currentEosSystemRates: ', currentEosSystemRates)
-    const nowTime = now.getTime()
-    const lastSystemRatesUpdated = currentEosSystemRates.lastUpdated
-    const timeSinceLastUpdate = nowTime - lastSystemRatesUpdated
-    if (
-      timeSinceLastUpdate >=
-      cryptoPricing.updateFrequencyMs
-    ) {
-      const requestOptions = {
-        method: "GET",
-        uri: eosPricingRatesURL,
-        json: true,
-        gzip: true,
-      }
-      const eosPricingResponse = await requestPromise(requestOptions)
-      now = new Date()
-      console.log("eosPricingResponse: ", eosPricingResponse)
-      currentEosSystemRates.lastUpdated = now.getTime()
-      currentEosSystemRates.data = eosPricingResponse
-      rates = currentEosSystemRates
-      return rates
-    }
-    return currentEosSystemRates
-  } catch (error) {
-    console.log("Error in eos pricing: ", error)
-    // reject(error)
   }
 }
 
