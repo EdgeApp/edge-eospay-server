@@ -8,15 +8,15 @@ const bodyParser = require('body-parser')
 const nano = require('nano')
 const eosjs = require('eosjs')
 const { bns } = require('biggystring')
+const { eosPrices } = require('./eosPrices')
 const rp = require('request-promise')
 const fetch = require("isomorphic-fetch")
 import { GetTokens } from '@eoscafe/hyperion'
 const { JsonRpc } = require("@eoscafe/hyperion")
 import request from 'request-promise'
 import {
-  currentEosSystemRates,
-  currentCryptoListings
-} from './common'
+  readEosPricesCacheJson
+} from './eosPrices'
 import {
   updateExchangeRates,
   getLatestEosActivationPriceInSelectedCryptoCurrency
@@ -518,8 +518,9 @@ app.post(CONFIG.apiVersionPrefix + '/activateAccount', function (req, res) {
             status: invoiceTx.status,
             event: null
           }]
+          const eosPricesCache = readEosPricesCacheJson()
           invoiceTx.quotedEosRates = {
-            eosFees: currentEosSystemRates.data,
+            eosFees: eosPricesCache[body.requestedAccountCurrencyCode.toLowerCase()].data,
             eosActivationFeeInUSD: eosActivationFeeInSelectedCryptoUSD
           }
 
@@ -754,7 +755,7 @@ async function eosAccountCreateAndBuyBw (newAccountName, ownerPubKey, activePubK
   const CURRENCY_CONFIG = CONFIG.chains[chain]
   let { net, ram, cpu } = CURRENCY_CONFIG.eosAccountActivationStartingBalances
   console.log('CURRENCY_CONFIG.eosAccountActivationStartingBalances: ', CURRENCY_CONFIG.eosAccountActivationStartingBalances)
-  ram = Number(ram) || 8192
+
   // ///////////////////////////////////////////////////
   // Buy CPU and RAM
   console.log('newAccountName:', newAccountName, 'ownerPubKey: ', ownerPubKey, 'activePubKey: ', activePubKey, 'requestedAccountCurrencyCode: ', requestedAccountCurrencyCode)
@@ -763,7 +764,8 @@ async function eosAccountCreateAndBuyBw (newAccountName, ownerPubKey, activePubK
 
     const result = await CONFIG.chains[chain].eosJsInstance.transaction(tr => {
       // console.log('transaction is: ', tr)
-      const eosPricingResponse = currentEosSystemRates.data
+      const eosPricesCache = readEosPricesCacheJson()
+      const eosPricingResponse = eosPricesCache[chain].data
       console.log('eosPricingResponse: ', eosPricingResponse)
       //apply minimum staked EOS amounts from Configs
       console.log('CURRENCY_CONFIG.eosAccountActivationStartingBalances.minimumNetEOSStake: ', CURRENCY_CONFIG.eosAccountActivationStartingBalances.minimumNetEOSStake)
