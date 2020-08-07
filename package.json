@@ -25,7 +25,7 @@
     "@eoscafe/hyperion": "^3.2.4",
     "ajv": "^6.5.5",
     "axios": "^0.19.2",
-    "biggystring": "^1.1.10",
+    "biggystring": "^3.0.2",
     "bitauth": "^0.3.2",
     "bitpay-rest": "^0.3.2",
     "body-parser": "^1.18.3",
