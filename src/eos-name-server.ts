@@ -64,7 +64,7 @@ let app
  *
  */
 
-console.log('about to try')
+console.log('about to init')
 let invoiceTxDb
 
 // ending point
@@ -72,8 +72,6 @@ let invoiceTxDb
 async function init () {
   try {
     fs.readFile(CONFIG.clientHexPrivateKeyFullPath, 'hex', (err, data) => {
-      // 634("Client private key: ", new Uint8Array(Buffer.from(data)).join('') )
-      console.log('Client private key: ', data)
       if (err) {
         getErrorObject('FailureReadingAPIClientPrivateKey', 'Error reading API private key for identifying to BTCPay Server. Please generate with a call to generateAndSavePrivateKey path.', err)
       }
@@ -157,9 +155,7 @@ async function init () {
    */
 
   const nanoDb = nano(CONFIG.dbFullpath)
-  console.log('CONFIG.dbFullpath: ', CONFIG.dbFullpath)
   invoiceTxDb = nanoDb.db.use('invoice_tx')
-  // console.log('invoiceTxDb is: ', invoiceTxDb)
 
   try {
     console.log('DB check & init')
@@ -216,16 +212,10 @@ const httpServer = http.createServer(app)
 // const routes = require("./routes/routes.js");
 
 app.get(CONFIG.apiVersionPrefix + '/', function (req, res) {
-  console.log('get /  part 1')
   res.status(200).send({ message: `Welcome to ${CONFIG.apiPublicDisplayName}` })
 })
 
-app.get(CONFIG.apiVersionPrefix + '/test', (req, res) => {
-  console.log('test success')
-})
-
 app.get(CONFIG.apiVersionPrefix + '/invoiceTxs', async function (req, res) {
-  console.log('get /invoicesTxs')
 
   const params = {
     dateStart: '2020-01-01',
@@ -263,7 +253,6 @@ app.get(CONFIG.apiVersionPrefix + '/invoiceTxs', async function (req, res) {
 })
 
 app.get(CONFIG.apiVersionPrefix + '/ ', function (req, res) {
-  console.log('get / part 2')
   // https://github.com/btcpayserver/node-btcpay
   try {
     const keypair = btcpay.crypto.generate_keypair()
@@ -291,7 +280,6 @@ app.get(CONFIG.apiVersionPrefix + '/ ', function (req, res) {
 })
 
 app.get(CONFIG.apiVersionPrefix + '/getSupportedCurrencies', function (req, res) {
-  console.log('/getSupportedCurrencies called: ', CONFIG.supportedCurrencies)
   res.status(200).send(CONFIG.supportedCurrencies)
 })
 
@@ -348,14 +336,11 @@ app.get(CONFIG.apiVersionPrefix + '/pairClientWithServer', function (req, res) {
 })
 
 app.get(CONFIG.apiVersionPrefix + '/rates/:baseCurrency?/:currency?', function (req, res) {
-  console.log('get /rates/:baseCurrency?/:currency?')
   const baseCurrency = req.params.baseCurrency || 'BTC'
   const currency = req.params.currency || 'USD'
   const client = getBtcPayClient()
-  console.log('in /rates/:baseCurrency')
   client.get_rates(`${baseCurrency}_${currency}`, CONFIG.btcpayStoreId)
     .then((rates) => {
-      // console.log(rates)
       res.status(200).send({message: 'Rates response', rates: rates})
     })
     .catch((err) => {
@@ -374,15 +359,11 @@ app.get(CONFIG.apiVersionPrefix + '/eosPrices/:currencyCode', function (req, res
   console.log('/eosPrices called: ', CONFIG.chains[lowerCaseCurrencyCode].resourcePrices)
   res.status(200).send(CONFIG.chains[lowerCaseCurrencyCode].resourcePrices)
 })
-console.log('Time is: ', new Date())
-console.log('/eosPrices/TLOS called: ', CONFIG.chains.tlos.resourcePrices)
-console.log('/eosPrices/EOS called: ', CONFIG.chains.eos.resourcePrices)
 
 app.get(CONFIG.apiVersionPrefix + '/startingResources/:currencyCode', function (req, res) {
   const { currencyCode } = req.params
   const lowerCaseCurrencyCode = currencyCode.toLowerCase()
   const { eosAccountActivationStartingBalances } =  CONFIG.chains[lowerCaseCurrencyCode]
-  console.log('/startingResources called: ', eosAccountActivationStartingBalances)
   const startingResourceNumbers = {
     ram: parseInt(eosAccountActivationStartingBalances.ram) / 1000,
     net: parseInt(eosAccountActivationStartingBalances.net),
@@ -393,7 +374,6 @@ app.get(CONFIG.apiVersionPrefix + '/startingResources/:currencyCode', function (
 
 app.post(CONFIG.apiVersionPrefix + '/activateAccount', function (req, res) {
   // validate body
-  console.log('in POST /activatAccount')
   const body = req.body
   const errors = []
   // expectedParams
@@ -491,10 +471,8 @@ app.post(CONFIG.apiVersionPrefix + '/activateAccount', function (req, res) {
     // get latest pricing for invoice
     getLatestEosActivationPriceInSelectedCryptoCurrency(requestedPaymentCurrency, body.requestedAccountCurrencyCode)
       .then(eosActivationFeeInSelectedCryptoUSD => {
-        console.log('getLatestEosActivationPriceInSelectedCryptoCurrency, requestedPaymentCurrency: ', requestedPaymentCurrency, 'body.requestedAccountCurrencyCode: ', body.requestedAccountCurrencyCode, 'eosActivationFeeInSelectedCryptoUSD: ', eosActivationFeeInSelectedCryptoUSD)
         // createInvoice for payment & setup watcher
         const client = getBtcPayClient()
-        // console.log('if not /activateAccount?, client is: ', client)
         client.create_invoice({
           price: eosActivationFeeInSelectedCryptoUSD,
           currency: 'USD',
@@ -504,7 +482,6 @@ app.post(CONFIG.apiVersionPrefix + '/activateAccount', function (req, res) {
           physical: false
       }) // should have token?
         .then((invoice) => {
-          // console.log('invoice: ', invoice)
 
           invoiceTx = formatCleanupInvoiceData(invoice)
 
@@ -561,16 +538,11 @@ app.post(CONFIG.apiVersionPrefix + '/activateAccount', function (req, res) {
 })
 
 app.post(CONFIG.apiVersionPrefix + '/invoiceNotificationEvent', function (req, res) {
-  console.log('/invoiceNotificationEvent:body', req.body)
-  console.log('req.body.data: ', req.body.data, ' req.body.data.id:' , (req.body.data && req.body.data.id), 'req.body.id: ', req.body.id)
   // not sure why callback request body has different structure...?
   const invoiceId = req.body && (req.body.id || (req.body.data && req.body.data.id))
   const btcpayInvoiceEventCode = typeof (req.body) === 'object' && req.body.event && req.body.event.code
-  console.log('btcpayInvoiceEventCode:', btcpayInvoiceEventCode)
   const btcpayInvoiceEventName = typeof (req.body) === 'object' && req.body.event && req.body.event.name
-  console.log('btcpayInvoiceEventName: ', btcpayInvoiceEventName)
   const invoiceEventData = formatCleanupInvoiceData(typeof (req.body) === 'object' && (req.body.data || req.body))
-  console.log('invoiceEventData: ', invoiceEventData)
   let invoiceTx = {}
   let _doUpdate = false
   const responseObject = {
@@ -620,8 +592,6 @@ app.post(CONFIG.apiVersionPrefix + '/invoiceNotificationEvent', function (req, r
   // console.log('invoiceEventData: ', invoiceEventData)
 
   invoiceTxDb.get(invoiceId, (err, invoiceData) => {
-    console.log('getting invoiceId, invoiceId is: ', invoiceId)
-    // console.log('invoiceData is: ', invoiceData)
     if (err) {
       console.log(getErrorObject('InvoiceTxDbError', 'Failure retrieving invoice from database on btcpay notification.', err))
     } else {
@@ -750,27 +720,19 @@ httpServer.listen(ENV.port, () => {
 async function eosAccountCreateAndBuyBw (newAccountName, ownerPubKey, activePubKey, requestedAccountCurrencyCode) {
   const chain = requestedAccountCurrencyCode.toLowerCase()
   const { creatorAccountName } = chains[chain]
-  // console.log('CONFIG is: ', CONFIG, 'and requestedAccountCurrencyCode is: ', requestedAccountCurrencyCode)
-  // console.log('chain is: ', chain)
   const CURRENCY_CONFIG = CONFIG.chains[chain]
   let { net, ram, cpu } = CURRENCY_CONFIG.eosAccountActivationStartingBalances
-  console.log('CURRENCY_CONFIG.eosAccountActivationStartingBalances: ', CURRENCY_CONFIG.eosAccountActivationStartingBalances)
 
   // ///////////////////////////////////////////////////
   // Buy CPU and RAM
-  console.log('newAccountName:', newAccountName, 'ownerPubKey: ', ownerPubKey, 'activePubKey: ', activePubKey, 'requestedAccountCurrencyCode: ', requestedAccountCurrencyCode)
-  console.log('eosAccountCreateAndBuyBw')
   try {
 
     const result = await CONFIG.chains[chain].eosJsInstance.transaction(tr => {
       // console.log('transaction is: ', tr)
       const eosPricesCache = readEosPricesCacheJson()
       const eosPricingResponse = eosPricesCache[chain].data
-      console.log('eosPricingResponse: ', eosPricingResponse)
       //apply minimum staked EOS amounts from Configs
-      console.log('CURRENCY_CONFIG.eosAccountActivationStartingBalances.minimumNetEOSStake: ', CURRENCY_CONFIG.eosAccountActivationStartingBalances.minimumNetEOSStake)
       let stakeNetQuantity = bns.lt(bns.mul(eosPricingResponse.net, net), CURRENCY_CONFIG.eosAccountActivationStartingBalances.minimumNetEOSStake) ? CURRENCY_CONFIG.eosAccountActivationStartingBalances.minimumNetEOSStake : bns.mul(eosPricingResponse.net, net)
-      console.log('stakeNetQuantity: ', stakeNetQuantity)
       let stakeCpuQuantity = bns.lt(bns.mul(eosPricingResponse.cpu, cpu), CURRENCY_CONFIG.eosAccountActivationStartingBalances.minimumCpuEOSStake) ? CURRENCY_CONFIG.eosAccountActivationStartingBalances.minimumCpuEOSStake : bns.mul(eosPricingResponse.cpu, cpu)
 
 
