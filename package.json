@@ -5,7 +5,7 @@
   "main": "lib/indexInfo.js",
   "repository": {
     "type": "git",
-    "url": "git+ssh://git@github.com:chuckwilliams37/edge-eos-name-payment-api.git"
+    "url": "git+ssh://git@github.com:edgeapp/edge-eospay-server.git"
   },
   "keywords": [
     "Edge",
@@ -18,9 +18,9 @@
   "author": "Chuck Williams <chuck@screenscholar.com> & Paul Puey <paul@edge.app>",
   "license": "MIT",
   "bugs": {
-    "url": "https://github.com/chuckwilliams37/edge-eos-name-payment-api/issues"
+    "url": "https://github.com/edgeapp/edge-eospay-server/issues"
   },
-  "homepage": "https://github.com/chuckwilliams37/edge-eos-name-payment-api#readme",
+  "homepage": "https://github.com/edgeapp/edge-eospay-server#readme",
   "dependencies": {
     "@eoscafe/hyperion": "^3.2.4",
     "ajv": "^6.5.5",
