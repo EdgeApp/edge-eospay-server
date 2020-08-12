@@ -6,6 +6,7 @@ const { bns } = require('biggystring')
 const fs = require('fs')
 const CONFIG = require('../config/serverConfig.js')
 
+const eosPricesDir = './cache'
 const eosPricesFile = './cache/eosPrices.json'
 
 const eosPrices = async chain => {
@@ -63,7 +64,7 @@ const eosPrices = async chain => {
   return out
 }
 
-function calcNet(account, uccc) {
+function calcNet (account, uccc) {
   if (!account.total_resources) {
     throw new Error('[total_resources] is missing in account')
   }
@@ -78,7 +79,7 @@ function calcNet(account, uccc) {
   return price
 }
 
-function calcCpu(account) {
+function calcCpu (account) {
   if (!account.total_resources) {
     throw new Error('[total_resources] is missing in account')
   }
@@ -94,6 +95,10 @@ function calcCpu(account) {
 }
 
 const readEosPricesCacheJson = () => {
+  if (!fs.existsSync(eosPricesDir)) {
+    fs.mkdirSync(eosPricesDir)
+    fs.writeFileSync(eosPricesFile, '{}')
+  }
   const cacheData = fs.readFileSync(eosPricesFile, 'utf8')
   const cacheDataJson = JSON.parse(cacheData)
   return cacheDataJson
@@ -104,10 +109,7 @@ const updateEosPricesCache = async () => {
     const { chains } = CONFIG
     for (const chain in chains) {
       const result = await eosPrices(chain)
-      let cacheData = fs.readFileSync(eosPricesFile, 'utf8')
-      console.log('cacheData: ', cacheData)
-      if (!cacheData) cacheData = '{}'
-      const cacheDataJson = JSON.parse(cacheData)
+      const cacheDataJson = readEosPricesCacheJson()
       if (!cacheDataJson[chain]) cacheDataJson[chain] = { data: {}, lastUpdated: 0 }
       cacheDataJson[chain].data = result
       cacheDataJson[chain].lastUpdated = new Date().getTime() / 1000
