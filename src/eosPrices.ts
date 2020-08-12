@@ -8,7 +8,7 @@ const CONFIG = require('../config/serverConfig.js')
 
 const eosPricesFile = './cache/eosPrices.json'
 
-const eosPrices = async (chain) => {
+const eosPrices = async chain => {
   const uccc = chain.toUpperCase() // uppercase currencyCode
   const hyperionEndpoint = CONFIG.chains[chain].hyperionEndpoint
   let options = {
@@ -26,13 +26,12 @@ const eosPrices = async (chain) => {
   }
   const out = {}
   try {
-
     const url = `${hyperionEndpoint}/v1/chain/get_table_rows`
     const result = await fetch(url, options)
     const resultJson = await result.json()
     const ramInfo = resultJson.rows[0]
     const quote = ramInfo.quote.balance.replace(` ${uccc}`, '')
-    const base = ramInfo.base.balance.replace(` RAM`, '')
+    const base = ramInfo.base.balance.replace(' RAM', '')
     const ramPerByte = bns.div(quote, base, 8)
     const ram = bns.mul(ramPerByte, '1000')
     // output is amount of CHAIN CURRENCY per Byte
@@ -64,7 +63,7 @@ const eosPrices = async (chain) => {
   return out
 }
 
-function calcNet (account, uccc) {
+function calcNet(account, uccc) {
   if (!account.total_resources) {
     throw new Error('[total_resources] is missing in account')
   }
@@ -79,7 +78,7 @@ function calcNet (account, uccc) {
   return price
 }
 
-function calcCpu (account) {
+function calcCpu(account) {
   if (!account.total_resources) {
     throw new Error('[total_resources] is missing in account')
   }
@@ -108,13 +107,12 @@ const updateEosPricesCache = async () => {
       let cacheData = fs.readFileSync(eosPricesFile, 'utf8')
       console.log('cacheData: ', cacheData)
       if (!cacheData) cacheData = '{}'
-      let cacheDataJson = JSON.parse(cacheData)
-      if (!cacheDataJson[chain]) cacheDataJson[chain] = {data: {}, lastUpdated: 0}
+      const cacheDataJson = JSON.parse(cacheData)
+      if (!cacheDataJson[chain]) cacheDataJson[chain] = { data: {}, lastUpdated: 0 }
       cacheDataJson[chain].data = result
-      cacheDataJson[chain].lastUpdated = (new Date()).getTime() / 1000
+      cacheDataJson[chain].lastUpdated = new Date().getTime() / 1000
       fs.writeFileSync(eosPricesFile, JSON.stringify(cacheDataJson))
     }
-
   } catch (error) {
     console.log('Failed updating resources prices, error: ', error)
   }
