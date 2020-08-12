@@ -106,9 +106,9 @@ Go thorough and edit the `serverConfig.json` file:
 
 #### Launch API server
 
-You will want to convert the Typescript to Javascript (src directory to dist directory) by running `tsc` (make sure it is installed, preferably globally)
+You will want to convert the Typescript to Javascript (src directory to lib directory) by running `tsc` (make sure it is installed, preferably globally)
 
-    tsc && node dist/eos-name-server.js
+    tsc && node lib/eos-name-server.js
 
 ### BTCPay Client Pairing (Pair This API server w/ BTCPay Server)
 
@@ -160,7 +160,7 @@ This mode is helpful because there are outputs in the startup scripts that will 
 :warning: It is highly recommended that you install npm & node using [nvm](https://github.com/creationix/nvm) so that you don't run into EACCESS or permission/sudo issues when using [forever](https://www.npmjs.com/package/forever) & [forever-service](https://www.npmjs.com/package/forever-service)
 :warning: :boom: If you have not installed node using nvm, and you have installed global services on Ubuntu machines, you're honestly better off starting from scratch and going back to installing everything with nvm & reinstalling all of your global npm packages after you've got nvm up & running with your preferred version of node.
 
-    sudo forever-service install eos-name-api -r [username] --script ./dist/eos-name-server.js --start
+    sudo forever-service install eos-name-api -r [username] --script ./lib/eos-name-server.js --start
 
 #### Restart, stop, delete service (once installed w/ forever-service)
 
