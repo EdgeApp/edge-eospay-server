@@ -74,6 +74,7 @@
     "lint:fix": "standard '*.js' 'src/**/*.js' --fix",
     "lint": "standard '*.js' 'src/**/*.js' && npm run flow",
     "test": "npm run lint && mocha",
-    "precommit": "npm run lint"
+    "precommit": "npm run lint",
+    "start": "node src/eos-name-server.ts"
   }
 }
