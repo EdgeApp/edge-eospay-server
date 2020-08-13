@@ -5,6 +5,7 @@ dist/
 test/
 config/
 cache/
+cache
 .envconfig
 cache
 .DS_Store
