@@ -1,9 +1,8 @@
-import { getEosActivationFee } from './eos-name-server'
 import axios from 'axios'
+import { readEosPricesCacheJson } from './eosPrices'
 const CONFIG = require('../config/serverConfig')
 const requestPromise = require('request-promise')
 const { bns } = require('biggystring')
-
 const currentExchangeRates = {
   lastUpdated: 0,
   data: []
@@ -80,7 +79,7 @@ export async function updateExchangeRates() {
 
 export async function getLatestEosActivationPriceInSelectedCryptoCurrency(
   paymentCurrencyCode,
-  requestedAccountCurrencyCode = 'EOS'
+  requestedAccountCurrencyCode
 ) {
   try {
     // get exchange rates
@@ -91,7 +90,7 @@ export async function getLatestEosActivationPriceInSelectedCryptoCurrency(
     const eosActivationFee = await getEosActivationFee(requestedAccountCurrencyCode)
     const valuesInUSD = cryptoPricing.data
       .filter(crypto => {
-        return crypto.symbol === paymentCurrencyCode || 'EOS'
+        return crypto.symbol === paymentCurrencyCode || 'EOS' || 'TLOS'
       })
       .map(crypto => {
         console.log({
@@ -110,8 +109,8 @@ export async function getLatestEosActivationPriceInSelectedCryptoCurrency(
     const eosActivationFeeInpaymentCurrencyCode = bns.div(
       rateInUsd,
       selectedCurrencyRateInUSD,
-      10,
-      12
+      12,
+      10
     )
 
     console.log('eosActivationFee: ', eosActivationFee)
@@ -131,7 +130,7 @@ export async function getLatestEosActivationPriceInSelectedCryptoCurrency(
 }
 
 // returns "234.234234", # of token units
-async function getEosActivationFee (requestedAccountCurrencyCode = 'eos'): string {
+async function getEosActivationFee (requestedAccountCurrencyCode): string {
   console.log(1)
   const requestedAccountCurrencyCodeLowerCase = requestedAccountCurrencyCode.toLowerCase()
   const { eosAccountActivationStartingBalances } = CONFIG.chains[
@@ -139,7 +138,8 @@ async function getEosActivationFee (requestedAccountCurrencyCode = 'eos'): strin
   ]
   // requests current ram, net, cpu prices IN EOS from configured latest eosRates data provided from CONFIG.eosPricingRatesURL
   try {
-    const eosRates = CONFIG.chains[requestedAccountCurrencyCodeLowerCase].resourcePrices
+    const resourcePrices = readEosPricesCacheJson()
+    const chainSpecificResourcePrices = resourcePrices[requestedAccountCurrencyCodeLowerCase].data
 
     // apply minimum staked EOS amounts from Configs
     const startingNetBalance = eosAccountActivationStartingBalances.net
@@ -152,7 +152,7 @@ async function getEosActivationFee (requestedAccountCurrencyCode = 'eos'): strin
     // EOS / unit of NET * NET = EOS
 
     const amountEosFoStartingNet = Number(
-      bns.mul(eosRates.net.toString(), startingNetBalance)
+      bns.mul(chainSpecificResourcePrices.net.toString(), startingNetBalance)
     ).toFixed(4)
     // take larger between minimum and staking start
     const stakeNetQuantity =
@@ -161,7 +161,7 @@ async function getEosActivationFee (requestedAccountCurrencyCode = 'eos'): strin
         : amountEosFoStartingNet
 
     const amountEosForStartingCpu = Number(
-      bns.mul(eosRates.cpu.toString(), startingCpuBalance)
+      bns.mul(chainSpecificResourcePrices.cpu.toString(), startingCpuBalance)
     ).toFixed(4)
     // take larger between minimum and staking start
     const stakeCpuQuantity =
@@ -172,11 +172,12 @@ async function getEosActivationFee (requestedAccountCurrencyCode = 'eos'): strin
     console.log(`stakeNetQuantity: ${stakeNetQuantity}`)
     console.log(`stakeCpuQuantity: ${stakeCpuQuantity}`)
 
-    const quantityRam = bns.div(eosAccountActivationStartingBalances.ram.toString(), '1000', 10, 3)
-    const stakeRamEosQuantity = bns.mul(eosRates.ram.toString(), quantityRam)
+    // quantity RAM in KB?
+    const quantityRam = bns.div(eosAccountActivationStartingBalances.ram, '1000', 3, 10)
+    const stakeRamEosQuantity = bns.mul(chainSpecificResourcePrices.ram.toString(), quantityRam)
     const totalEos = bns.add(bns.add(stakeRamEosQuantity, stakeNetQuantity), stakeCpuQuantity)
 
-    console.log(`totalEos: ${totalEos}`)
+    console.log(`[${requestedAccountCurrencyCode}] total fee: ${totalEos}`)
     // change value later
     return totalEos
   } catch (error) {

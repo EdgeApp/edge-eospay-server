@@ -139,14 +139,12 @@ async function init () {
   // PRICING
   try {
     // testing pricing
-    getLatestEosActivationPriceInSelectedCryptoCurrency('BTC')
-      .then(result => {
-        console.log('getLatestEosActivationPriceInSelectedCryptoCurrency.result : ', result)
-      })
-      .catch(error => {
-        console.log(error)
-        throw new Error('ERROR in getLatestEosActivationPriceInSelectedCryptoCurrency() : ', error)
-      })
+    const eosResult = await getLatestEosActivationPriceInSelectedCryptoCurrency('BTC', 'EOS')
+    console.log('[EOS] getLatestEosActivationPriceInSelectedCryptoCurrency.result : ', eosResult)
+
+    const tlosResult = await getLatestEosActivationPriceInSelectedCryptoCurrency('BTC', 'TLOS')
+    console.log('[TLOS] getLatestEosActivationPriceInSelectedCryptoCurrency.result : ', tlosResult)
+
   } catch (e) {
     throw ('Error in PRICING startup calls: ', e)
   }
@@ -384,8 +382,10 @@ app.get(CONFIG.apiVersionPrefix + '/tests', function (req, res) {
 app.get(CONFIG.apiVersionPrefix + '/eosPrices/:currencyCode', function (req, res) {
   const { currencyCode } = req.params
   const lowerCaseCurrencyCode = currencyCode.toLowerCase()
-  console.log('/eosPrices called: ', CONFIG.chains[lowerCaseCurrencyCode].resourcePrices)
-  res.status(200).send(CONFIG.chains[lowerCaseCurrencyCode].resourcePrices)
+  const resourcePrices = readEosPricesCacheJson()
+  const chainSpecificResourcePrices = resourcePrices[lowerCaseCurrencyCode].data
+  console.log('/eosPrices called: ', chainSpecificResourcePrices)
+  res.status(200).send(chainSpecificResourcePrices)
 })
 
 app.get(CONFIG.apiVersionPrefix + '/startingResources/:currencyCode', function (req, res) {
@@ -839,17 +839,17 @@ async function eosAccountCreateAndBuyBw (
         const eosPricingResponse = eosPricesCache[chain].data
         // apply minimum staked EOS amounts from Configs
         const stakeNetQuantity = bns.lt(
-          bns.mul(eosPricingResponse.net, net),
+          bns.mul(eosPricingResponse.net.toString(), net),
           CURRENCY_CONFIG.eosAccountActivationStartingBalances.minimumNetEOSStake
         )
           ? CURRENCY_CONFIG.eosAccountActivationStartingBalances.minimumNetEOSStake
-          : bns.mul(eosPricingResponse.net, net)
+          : bns.mul(eosPricingResponse.net.toString(), net)
         const stakeCpuQuantity = bns.lt(
-          bns.mul(eosPricingResponse.cpu, cpu),
+          bns.mul(eosPricingResponse.cpu.toString(), cpu),
           CURRENCY_CONFIG.eosAccountActivationStartingBalances.minimumCpuEOSStake
         )
           ? CURRENCY_CONFIG.eosAccountActivationStartingBalances.minimumCpuEOSStake
-          : bns.mul(eosPricingResponse.cpu, cpu)
+          : bns.mul(eosPricingResponse.cpu.toString(), cpu)
 
         const delegateBwOptions = {
           from: creatorAccountName,
@@ -874,7 +874,7 @@ async function eosAccountCreateAndBuyBw (
         tr.buyrambytes({
           payer: creatorAccountName,
           receiver: newAccountName,
-          bytes: ram
+          bytes: parseInt(ram)
         })
       },
       {

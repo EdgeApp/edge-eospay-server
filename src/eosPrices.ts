@@ -33,10 +33,10 @@ const eosPrices = async chain => {
     const ramInfo = resultJson.rows[0]
     const quote = ramInfo.quote.balance.replace(` ${uccc}`, '')
     const base = ramInfo.base.balance.replace(' RAM', '')
-    const ramPerByte = bns.div(quote, base, 8)
+    const ramPerByte = bns.div(quote, base, 10, 10)
     const ram = bns.mul(ramPerByte, '1000')
     // output is amount of CHAIN CURRENCY per Byte
-    out.ram = ram
+    out.ram = parseFloat(ram)
   } catch (e) {
     console.log(e)
   }
@@ -56,8 +56,8 @@ const eosPrices = async chain => {
     const net = calcNet(account, uccc)
     const cpu = calcCpu(account)
 
-    out.net = net
-    out.cpu = cpu
+    out.net = parseFloat(net)
+    out.cpu = parseFloat(cpu)
   } catch (e) {
     console.log(e)
   }
@@ -73,9 +73,9 @@ function calcNet (account, uccc) {
   }
   const { total_resources: totalResources, net_limit: netLimit } = account
   const netWeight = totalResources.net_weight.replace(` ${uccc}`, '')
-  let price = bns.div(netWeight, netLimit.max.toString(), 16)
+  let price = bns.div(netWeight, netLimit.max.toString(), 10, 10)
   price = bns.mul(price, '1024')
-  price = bns.div(price, '3', 16)
+  price = bns.div(price, '3', 10, 10)
   return price
 }
 
@@ -88,9 +88,9 @@ function calcCpu (account) {
   }
   const { total_resources: totalResources, cpu_limit: cpuLimit } = account
   const cpuWeight = totalResources.cpu_weight.replace(' EOS', '')
-  let price = bns.div(cpuWeight, cpuLimit.max.toString(), 16)
+  let price = bns.div(cpuWeight, cpuLimit.max.toString(), 10, 10)
   price = bns.mul(price, '1024')
-  price = bns.div(price, '3', 16)
+  price = bns.div(price, '3', 10, 10)
   return price
 }
 
@@ -105,6 +105,7 @@ const readEosPricesCacheJson = () => {
 }
 
 const updateEosPricesCache = async () => {
+  console.log('calling updateEosPricesCache')
   try {
     const { chains } = CONFIG
     for (const chain in chains) {
@@ -123,4 +124,5 @@ const updateEosPricesCache = async () => {
 module.exports = { eosPrices, readEosPricesCacheJson, updateEosPricesCache }
 
 updateEosPricesCache()
-setInterval(updateEosPricesCache, 60 * 1000)
+// refresh every hour
+setInterval(updateEosPricesCache, 60 * 60 * 1000)
