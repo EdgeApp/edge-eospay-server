@@ -1,11 +1,10 @@
 // This file takes the fetching of EOSIO resources prices out of info1 servers
 // and onto this repo
 
-const fetch = require('node-fetch')
 const { bns } = require('biggystring')
 const fs = require('fs')
 const CONFIG = require('../config/serverConfig.js')
-
+const fetch1 = require('node-fetch')
 const eosPricesDir = './cache'
 const eosPricesFile = './cache/eosPrices.json'
 
@@ -28,7 +27,7 @@ const eosPrices = async chain => {
   const out = {}
   try {
     const url = `${hyperionEndpoint}/v1/chain/get_table_rows`
-    const result = await fetch(url, options)
+    const result = await fetch1(url, options)
     const resultJson = await result.json()
     const ramInfo = resultJson.rows[0]
     const quote = ramInfo.quote.balance.replace(` ${uccc}`, '')
@@ -51,7 +50,7 @@ const eosPrices = async chain => {
   }
   try {
     const url = `${hyperionEndpoint}/v1/chain/get_account`
-    const result = await fetch(url, options)
+    const result = await fetch1(url, options)
     const account = await result.json()
     const net = calcNet(account, uccc)
     const cpu = calcCpu(account)

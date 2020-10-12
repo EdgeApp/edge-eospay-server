@@ -12,7 +12,7 @@ const bodyParser = require('body-parser')
 const nano = require('nano')
 const eosjs = require('eosjs')
 const { bns } = require('biggystring')
-const fetch = require('isomorphic-fetch')
+const fetch = require('node-fetch')
 const { JsonRpc } = require('@eoscafe/hyperion')
 
 const CONFIG = require('../config/serverConfig')
@@ -37,10 +37,11 @@ for (const chain in chains) {
   chains[chain].activationPublicKey = ecc.privateToPublic(
     CONFIG.chains[chain].eosCreatorAccountPrivateKey
   )
+  console.log('chains[chain].activationPublicKey: ', chains[chain].activationPublicKey)
   chains[chain].eosJsInstance = eosjs(chains[chain].eosjsConfig)
   console.log('Chain is: ', chain)
   chains[chain].eosJsInstance.getInfo((error, result) => {
-    console.log(error, result)
+    console.log(error, result.chain_id)
   })
 }
 
@@ -110,30 +111,48 @@ async function init () {
     ENV.clientPrivateKey = null
   }
 
-  try {
-    for (const chain in chains) {
-      const { API_ENDPOINT, HYPERION_ENDPOINT } = chains[chain]
-      const accountNameResults = await axios.post(`${API_ENDPOINT}/v1/history/get_key_accounts`, {
-        public_key: chains[chain].activationPublicKey
-      })
-      const [accountName] = accountNameResults.data.account_names
-      console.log('creeatorAccountName: ', accountName)
-      chains[chain].creatorAccountName = accountName
-      const accountTokensResponse = await axios.get(
-        `${HYPERION_ENDPOINT}/v2/state/get_tokens?account=${accountName}`
-      )
-      const { tokens } = accountTokensResponse.data
-      const currencyCode = chain.toUpperCase()
-      const primaryToken = tokens.find(token => {
-        return token.symbol === currencyCode
-      })
-      if (!primaryToken) {
-        throw new Error(`No primary tokens in creation account for ${currencyCode}`)
+  for (const chain in chains) {  
+    const {  HYPERION_ENDPOINT } = chains[chain]
+    let accountName
+
+    const fetchAccount = async () => {
+      try {
+        console.log('chains[chain].activationPublicKey: ', chains[chain].activationPublicKey)
+        const accountNameResults = await axios.post(`${HYPERION_ENDPOINT}/v1/history/get_key_accounts`, {
+          public_key: chains[chain].activationPublicKey
+        })
+        accountName = accountNameResults.data.account_names[0]
+        console.log('creeatorAccountName: ', accountName)
+        chains[chain].creatorAccountName = accountName
+      } catch (error) {
+        // duplicate code
+        setTimeout(async () => {
+          await fetchAccount()
+        }, 5000)
+        console.log('get_key_accounts error: ', error)
+      }  
+    }
+
+    await fetchAccount()
+
+    const fetchTokenBalance = async () => {
+      try {
+        const accountTokensResponse = await axios.get(
+          `${HYPERION_ENDPOINT}/v2/state/get_account?account=${accountName}`
+        )
+        const { core_liquid_balance } = accountTokensResponse.data.account
+        console.log('core_liquid_balance: ', core_liquid_balance)
+        if (!core_liquid_balance) {
+          throw new Error(`No primary tokens in creation account for ${chain}`)
+        }
+
+      } catch (error) {
+        console.log('get_tokens error: ', error)
+        setTimeout(async () => {
+          await fetchTokenBalance()
+        }, 5000)
       }
     }
-  } catch (e) {
-    console.log('Error in EOS Account Name Query Result: ', e)
-    throw new Error('Error in EOS startup checks: ', e)
   }
 
   // PRICING
@@ -145,8 +164,8 @@ async function init () {
     const tlosResult = await getLatestEosActivationPriceInSelectedCryptoCurrency('BTC', 'TLOS')
     console.log('[TLOS] getLatestEosActivationPriceInSelectedCryptoCurrency.result : ', tlosResult)
 
-  } catch (e) {
-    throw ('Error in PRICING startup calls: ', e)
+  } catch (err) {
+    throw ('Error in PRICING startup calls: ', err)
   }
 
   /***
@@ -164,8 +183,11 @@ async function init () {
    *         \/                  \/     \/      \/      \/
    */
 
+  // console.log('kylan about to use nanoDb')
   const nanoDb = nano(CONFIG.dbFullpath)
+  // console.log('nanoDb is: ', nanoDb)
   invoiceTxDb = nanoDb.db.use('invoice_tx')
+  if (!invoiceTxDb) console.log('No invoiceTxDB!')
 
   try {
     console.log('DB check & init')
@@ -392,10 +414,11 @@ app.get(CONFIG.apiVersionPrefix + '/startingResources/:currencyCode', function (
   const { currencyCode } = req.params
   const lowerCaseCurrencyCode = currencyCode.toLowerCase()
   const { eosAccountActivationStartingBalances } = CONFIG.chains[lowerCaseCurrencyCode]
+  console.log('eosAccountActivationStartingBalances: ', eosAccountActivationStartingBalances)
   const startingResourceNumbers = {
     ram: parseInt(eosAccountActivationStartingBalances.ram) / 1000,
-    net: parseInt(eosAccountActivationStartingBalances.net),
-    cpu: parseInt(eosAccountActivationStartingBalances.cpu)
+    net: parseFloat(eosAccountActivationStartingBalances.net),
+    cpu: parseFloat(eosAccountActivationStartingBalances.cpu)
   }
   res.status(200).send(startingResourceNumbers)
 })
@@ -646,7 +669,7 @@ app.post(CONFIG.apiVersionPrefix + '/invoiceNotificationEvent', function (req, r
     })
   }
 
-  // console.log('invoiceEventData: ', invoiceEventData)
+  console.log('invoiceEventData: ', invoiceEventData)
 
   invoiceTxDb.get(invoiceId, (err, invoiceData) => {
     if (err) {

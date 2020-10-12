@@ -22,6 +22,7 @@ export async function updateExchangeRates() {
       }
     }
     // otherwise update with fetched pricing
+    console.log('======= Updating Crypto Pricing ========')
     let now = new Date()
     if (
       now.getTime() - currentExchangeRates.lastUpdated >=
@@ -49,7 +50,7 @@ export async function updateExchangeRates() {
 
           currentExchangeRates.lastUpdated = now.getTime()
           currentExchangeRates.data = response.data
-          console.log('currentExchangeRates:', currentExchangeRates)
+          console.log('fetching currentExchangeRates length:', currentExchangeRates.length)
           const telosRateReply = await axios(
             'https://api.coingecko.com/api/v3/coins/telos?localization=false&tickers=false&market_data=true&community_data=false&developer_data=false&sparkline=false'
           )
@@ -93,9 +94,9 @@ export async function getLatestEosActivationPriceInSelectedCryptoCurrency(
         return crypto.symbol === paymentCurrencyCode || 'EOS' || 'TLOS'
       })
       .map(crypto => {
-        console.log({
-          [`${crypto.symbol}_USD`]: crypto.quote.USD.price.toString()
-        })
+        // console.log({
+        //   [`${crypto.symbol}_USD`]: crypto.quote.USD.price.toString()
+        // })
         return { [`${crypto.symbol}_USD`]: crypto.quote.USD.price.toString() }
       })
 
