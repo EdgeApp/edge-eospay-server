@@ -13,13 +13,17 @@ const bodyParser = require('body-parser')
 const nano = require('nano')
 const { Api, JsonRpc, RpcError } = require('eosjs');
 const { JsSignatureProvider } = require('eosjs/dist/eosjs-jssig');      // development only
+const fetch = require('node-fetch');                                    // node only; not needed in browsers
 const { TextEncoder, TextDecoder } = require('util');                   // node only; native TextEncoder/Decoder
 const ecc = require('eosjs-ecc')
 const { bns } = require('biggystring')
 const fetch = require('node-fetch')
-const { JsonRpc: HyperionRpc } = require('@eoscafe/hyperion')
+const { JsonRpc } = require('@eoscafe/hyperion')
 
 const CONFIG = require('../config/serverConfig')
+
+const rpc = new JsonRpc('http://127.0.0.1:8888', { fetch });
+const api = new Api({ rpc, signatureProvider, textDecoder: new TextDecoder(), textEncoder: new TextEncoder() });
 
 const privKey = fs.readFileSync(CONFIG.clientHexPrivateKeyFullPath, 'utf8')
 const keypair = btcpay.crypto.load_keypair(privKey)
@@ -35,18 +39,12 @@ const btcPayClient = new btcpay.BTCPayClient(`https://${CONFIG.btcpayServerHostN
 
 const chains = { ...CONFIG.chains }
 for (const chain in chains) {
-  const currentChain = CONFIG.chains[chain]
-  chains[chain].hyperionRpc = new HyperionRpc(currentChain.hyperionEndpoint, { fetch })
+  chains[chain].hyperionRpc = new JsonRpc(CONFIG.chains[chain].hyperionEndpoint, { fetch })
   chains[chain].activationPublicKey = ecc.privateToPublic(
-    currentChain.eosCreatorAccountPrivateKey
+    CONFIG.chains[chain].eosCreatorAccountPrivateKey
   )
   console.log('chains[chain].activationPublicKey: ', chains[chain].activationPublicKey)
-
-  const rpc = new JsonRpc(currentChain.eosjsConfig.httpEndpoint, { fetch });
-  const signatureProvider = new JsSignatureProvider([currentChain.eosjsConfig.keyProvider])
-  const api = new Api({ rpc, signatureProvider, textDecoder: new TextDecoder(), textEncoder: new TextEncoder() });
-  chains[chain].eosJsInstance = api
-
+  chains[chain].eosJsInstance = eosjs(chains[chain].eosjsConfig)
   console.log('Chain is: ', chain)
   chains[chain].eosJsInstance.getInfo((error, result) => {
     console.log(error, result.chain_id)

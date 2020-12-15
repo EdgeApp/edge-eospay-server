@@ -12,7 +12,7 @@
         "<node_internals>/**"
       ],
       "program": "${workspaceFolder}/src/eos-name-server.ts",
-      "outFiles": ["${workspaceFolder}/dist/**/*.js"],
+      "outFiles": ["${workspaceFolder}/lib/**/*.js"],
       "preLaunchTask": "tsc",
       "args": ["tlos"]
     }
