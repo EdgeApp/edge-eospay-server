@@ -11,13 +11,10 @@ const btcpay = require('btcpay')
 const express = require('express')
 const bodyParser = require('body-parser')
 const nano = require('nano')
-const { Api, JsonRpc, RpcError } = require('eosjs');
-const { JsSignatureProvider } = require('eosjs/dist/eosjs-jssig');      // development only
-const { TextEncoder, TextDecoder } = require('util');                   // node only; native TextEncoder/Decoder
-const ecc = require('eosjs-ecc')
+const eosjs = require('eosjs')
 const { bns } = require('biggystring')
 const fetch = require('node-fetch')
-const { JsonRpc: HyperionRpc } = require('@eoscafe/hyperion')
+const { JsonRpc } = require('@eoscafe/hyperion')
 
 const CONFIG = require('../config/serverConfig')
 
@@ -31,22 +28,18 @@ const btcPayClient = new btcpay.BTCPayClient(`https://${CONFIG.btcpayServerHostN
   merchant: merchantKey
 })
 
+const { ecc, format } = eosjs.modules
+
 // configure master config objects with specific chain data
 
 const chains = { ...CONFIG.chains }
 for (const chain in chains) {
-  const currentChain = CONFIG.chains[chain]
-  chains[chain].hyperionRpc = new HyperionRpc(currentChain.hyperionEndpoint, { fetch })
+  chains[chain].hyperionRpc = new JsonRpc(CONFIG.chains[chain].hyperionEndpoint, { fetch })
   chains[chain].activationPublicKey = ecc.privateToPublic(
-    currentChain.eosCreatorAccountPrivateKey
+    CONFIG.chains[chain].eosCreatorAccountPrivateKey
   )
   console.log('chains[chain].activationPublicKey: ', chains[chain].activationPublicKey)
-
-  const rpc = new JsonRpc(currentChain.eosjsConfig.httpEndpoint, { fetch });
-  const signatureProvider = new JsSignatureProvider([currentChain.eosjsConfig.keyProvider])
-  const api = new Api({ rpc, signatureProvider, textDecoder: new TextDecoder(), textEncoder: new TextEncoder() });
-  chains[chain].eosJsInstance = api
-
+  chains[chain].eosJsInstance = eosjs(chains[chain].eosjsConfig)
   console.log('Chain is: ', chain)
   chains[chain].eosJsInstance.getInfo((error, result) => {
     console.log(error, result.chain_id)
@@ -493,6 +486,7 @@ app.post(CONFIG.apiVersionPrefix + '/activateAccount', function (req, res) {
                 }
 
                 try {
+                  format.encodeName(body[param]) // throws error on failed validation
                   requestedAccountName = body[param]
                 } catch (e) {
                   errors.push(
