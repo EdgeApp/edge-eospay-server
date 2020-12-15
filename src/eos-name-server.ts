@@ -895,79 +895,60 @@ async function eosAccountCreateAndBuyBw (
     transfer: 0
   }
 
-  try {
-    const result = await CONFIG.chains[chain].eosJsInstance.transaction({
-      actions: [{
-        account: 'eosio',
-        name: 'newaccount',
-        authorization: [{
-          actor: creatorAccountName,
-          permission: 'active',
-        }],
-        data: {
-          creator: creatorAccountName,
-          name: newAccountName,
-          owner: ownerPubKey, // <------ the public key the of the new user account that was generate by a wallet tool or the eosjs-keygen
-          active: activePubKey
-        },
-      }, {
-        account: 'eosio',
-        name: 'delegatebw',
-        authorization: [{
-          actor: creatorAccountName,
-          permission: 'active',
-        }],
-        data: delegateBwOptions,
-      },{
-        account: 'eosio',
-        name: 'buyrambytes',
-        authorization: [{
-          actor: creatorAccountName,
-          permission: 'active',
-        }],
-        data: {
-          payer: creatorAccountName,
-          receiver: newAccountName,
-          bytes: parseInt(ram)
-        }
-      }]
+  const txData = {
+    actions: [{
+      account: 'eosio',
+      name: 'newaccount',
+      authorization: [{
+        actor: creatorAccountName,
+        permission: 'active',
+      }],
+      data: {
+        creator: creatorAccountName,
+        name: newAccountName,
+        owner: ownerPubKey, // <------ the public key the of the new user account that was generate by a wallet tool or the eosjs-keygen
+        active: activePubKey
+      },
     }, {
-      blocksBehind: 3,
-      expireSeconds: 30,
-      sign: true,
-      broadcast: true
-    })
-    console.log('result: ', result)
-  } catch (err) {
-    console.log('err: ', err)
+      account: 'eosio',
+      name: 'delegatebw',
+      authorization: [{
+        actor: creatorAccountName,
+        permission: 'active',
+      }],
+      data: delegateBwOptions,
+    },{
+      account: 'eosio',
+      name: 'buyrambytes',
+      authorization: [{
+        actor: creatorAccountName,
+        permission: 'active',
+      }],
+      data: {
+        payer: creatorAccountName,
+        receiver: newAccountName,
+        bytes: parseInt(ram)
+      }
+    }]
   }
-}
 
-
-
-      // tr.newaccount({
-      //   creator: creatorAccountName,
-      //   name: newAccountName,
-      //   owner: ownerPubKey, // <------ the public key the of the new user account that was generate by a wallet tool or the eosjs-keygen
-      //   active: activePubKey
-      // })
-      // tr.delegatebw(delegateBwOptions)
-      // tr.buyrambytes({
-      //   payer: creatorAccountName,
-      //   receiver: newAccountName,
-      //   bytes: parseInt(ram)
-      // })
-  //   },
-  //   {
-  //     sign: true,
-  //     broadcast: true
-  //   }
-  // ).then(response => {
-  //   console.log('response: ', response)
-  // })
-  // .catch(err => {
-  //   console.log('err: ', err)
-  // })
+  for (const eosNode of CONFIG.chains[chain].eosNodes) {
+    try {
+      const temporaryEosjsConfig = {
+        ...chains[chain].eosjsConfig,
+        httpEndpoint: eosNode
+      }
+      const temporaryEosjsInstance = eosjs(temporaryEosjsConfig)
+      await temporaryEosjsInstance.transaction(txData, {
+        blocksBehind: 3,
+        expireSeconds: 30,
+        sign: true,
+        broadcast: true
+      })
+    } catch (err) {
+      console.log('create account tx for ', newAccountName, ' failed on ', requestedAccountCurrencyCode, 'with node ', eosNode)
+    }
+  }
 }
 
 function getBtcPayClient () {
@@ -1078,7 +1059,7 @@ const checkPaidNotCreated = async () => {
       })
       console.log('requestedAccountName exists for: ', requestedAccountName)
     } catch (error) {
-      console.log(requestedAccountName, ' does not exist [good]')
+      console.log(requestedAccountName, ' does not exist')
       eosAccountCreateAndBuyBw(
         requestedAccountName,
         ownerPublicKey,
@@ -1089,6 +1070,6 @@ const checkPaidNotCreated = async () => {
   }
 }
 
-setTimeout(checkPaidNotCreated, 3000)
+setTimeout(checkPaidNotCreated, 30000)
 // repeat every 5 minutes
-setInterval(checkPaidNotCreated, 60 * 5 * 1000)
+setInterval(checkPaidNotCreated, 60 * 30 * 1000)
