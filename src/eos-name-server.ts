@@ -932,7 +932,7 @@ async function eosAccountCreateAndBuyBw (
     }]
   }
 
-  for (const eosNode of CONFIG.chains[chain].eosNodes) {
+  for (const eosNode of shuffle(CONFIG.chains[chain].eosNodes)) {
     try {
       const temporaryEosjsConfig = {
         ...chains[chain].eosjsConfig,
@@ -940,13 +940,14 @@ async function eosAccountCreateAndBuyBw (
       }
       const temporaryEosjsInstance = eosjs(temporaryEosjsConfig)
       await temporaryEosjsInstance.transaction(txData, {
-        blocksBehind: 3,
-        expireSeconds: 30,
+        blocksBehind: 30,
+        expireSeconds: 300,
         sign: true,
-        broadcast: true
+        broadcast: true,
+
       })
     } catch (err) {
-      console.log('create account tx for ', newAccountName, ' failed on ', requestedAccountCurrencyCode, 'with node ', eosNode)
+      console.log('create account tx for ', newAccountName, ' failed on ', requestedAccountCurrencyCode, 'with node ', eosNode, 'with error: ', err)
     }
   }
 }
@@ -1041,7 +1042,7 @@ const checkPaidNotCreated = async () => {
   const nowTimestamp = Date.now()  / 1000
   const invoices = await btcPayClient.get_invoices()
   const recentCompletedInvoices = invoices.filter(invoice => {
-    const isLastWeek = (nowTimestamp - (invoice.invoiceTime / 1000)) < (60 * 60 * 24 * 7)
+    const isLastWeek = (nowTimestamp - (invoice.invoiceTime / 1000)) < (60 * 60 * 24 * 7 * 4)
     return invoice.status === 'complete' && isLastWeek
   })
   // console.log('recentCompletedInvoices: ', recentCompletedInvoices)
@@ -1060,14 +1061,37 @@ const checkPaidNotCreated = async () => {
       console.log('requestedAccountName exists for: ', requestedAccountName)
     } catch (error) {
       console.log(requestedAccountName, ' does not exist')
-      eosAccountCreateAndBuyBw(
-        requestedAccountName,
-        ownerPublicKey,
-        activePublicKey,
-        requestedAccountCurrencyCode
-      )
+      try {
+        eosAccountCreateAndBuyBw(
+          requestedAccountName,
+          ownerPublicKey,
+          activePublicKey,
+          requestedAccountCurrencyCode
+        )
+      } catch (err) {
+        console.log('eosAccountCreateAndBuyBw failing inside of checkPaidNotCreated')
+      }
     }
   }
+}
+
+function shuffle(array) {
+  var currentIndex = array.length, temporaryValue, randomIndex;
+
+  // While there remain elements to shuffle...
+  while (0 !== currentIndex) {
+
+    // Pick a remaining element...
+    randomIndex = Math.floor(Math.random() * currentIndex);
+    currentIndex -= 1;
+
+    // And swap it with the current element.
+    temporaryValue = array[currentIndex];
+    array[currentIndex] = array[randomIndex];
+    array[randomIndex] = temporaryValue;
+  }
+
+  return array;
 }
 
 setTimeout(checkPaidNotCreated, 30000)
