@@ -49,7 +49,7 @@ for (const chain in chains) {
 const ENV = {
   clientPrivateKey: null,
   merchantData: null,
-  port: process.env.PORT || 3873
+  port: process.env.PORT || 3880
 }
 
 let app
@@ -160,7 +160,7 @@ async function init () {
   const nanoDb = nano(CONFIG.dbFullpath)
   console.log('CONFIG.dbFullpath: ', CONFIG.dbFullpath)
   invoiceTxDb = nanoDb.db.use('invoice_tx')
-  // console.log('invoiceTxDb is: ', invoiceTxDb)
+  console.log('invoiceTxDb is: ', invoiceTxDb)
 
   try {
     console.log('DB check & init')
@@ -195,9 +195,7 @@ async function init () {
 
   try {
     credentials = {
-      key: fs.readFileSync(CONFIG.serverSSLKeyFilePath, 'utf8'),
-      cert: fs.readFileSync(CONFIG.serverSSLCertFilePath, 'utf8')
-      // ca: fs.readFileSync(CONFIG.serverSSLCaCertFilePath, 'utf8')
+
     }
   } catch (e) {
     console.log('Error reading server SSL data:', e)
@@ -213,7 +211,6 @@ app.use(cors())
 
 // Starting both http & https servers
 const httpServer = http.createServer(app)
-const httpsServer = https.createServer(credentials, app)
 
 /***
  *    __________ ________   ____ _________________________ _________
@@ -237,7 +234,6 @@ app.get(CONFIG.apiVersionPrefix + '/test', (req, res) => {
 })
 
 app.get(CONFIG.apiVersionPrefix + '/invoiceTxs', async function (req, res) {
-  console.log('get /invoicesTxs')
 
   const params = {
     dateStart: '2020-01-01',
@@ -377,6 +373,19 @@ app.get(CONFIG.apiVersionPrefix + '/eosPrices/:currencyCode', function (req, res
   const lowerCaseCurrencyCode = currencyCode.toLowerCase()
   console.log('/eosPrices called: ', CONFIG.chains[lowerCaseCurrencyCode].resourcePrices)
   res.status(200).send(CONFIG.chains[lowerCaseCurrencyCode].resourcePrices)
+})
+
+app.get(CONFIG.apiVersionPrefix + '/startingResources/:currencyCode', function (req, res) {
+  const { currencyCode } = req.params
+  const lowerCaseCurrencyCode = currencyCode.toLowerCase()
+  const { eosAccountActivationStartingBalances } =  CONFIG.chains[lowerCaseCurrencyCode]
+  console.log('/startingResources called: ', eosAccountActivationStartingBalances)
+  const startingResourceNumbers = {
+    ram: parseInt(eosAccountActivationStartingBalances.ram) / 1000,
+    net: parseInt(eosAccountActivationStartingBalances.net),
+    cpu: parseInt(eosAccountActivationStartingBalances.cpu)
+  }
+  res.status(200).send(startingResourceNumbers)
 })
 
 app.get(CONFIG.apiVersionPrefix + '/getSupportedCurrencies', function (req, res) {
@@ -729,10 +738,6 @@ httpServer.listen(ENV.port, () => {
   console.log(`HTTP Server running on port ${ENV.port}`)
 })
 
-httpsServer.listen(8003, () => {
-  console.log('HTTPS Server running on port 8003')
-})
-
 /***
  *      ___ ______________.____   _______________________________  _________
  *     /   |   \_   _____/|    |  \______   \_   _____/\______   \/   _____/
@@ -876,3 +881,6 @@ function isSupportedCurrency (currencyCode) {
   // console.log(`isSupportedCurrency() : ${_returnVal}`)
   return _returnVal
 }
+
+// 1454  sudo service eos-name-api stop
+// 1455  sudo forever-service install eos-name-api -r edgy --script ./src/eos-name-server.js --start
