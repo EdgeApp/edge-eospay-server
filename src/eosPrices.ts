@@ -79,18 +79,19 @@ function calcNet (account, uccc) {
 }
 
 function calcCpu (account) {
-  if (!account.total_resources) {
-    throw new Error('[total_resources] is missing in account')
-  }
-  if (!account.cpu_limit) {
-    throw new Error('[cpu_limit] is missing in account')
-  }
-  const { total_resources: totalResources, cpu_limit: cpuLimit } = account
-  const cpuWeight = totalResources.cpu_weight.replace(' EOS', '')
-  let price = bns.div(cpuWeight, cpuLimit.max.toString(), 10, 10)
-  price = bns.mul(price, '1024')
-  price = bns.div(price, '3', 10, 10)
-  return price
+  // if (!account.total_resources) {
+  //   throw new Error('[total_resources] is missing in account')
+  // }
+  // if (!account.cpu_limit) {
+  //   throw new Error('[cpu_limit] is missing in account')
+  // }
+  // const { total_resources: totalResources, cpu_limit: cpuLimit } = account
+  // const cpuWeight = totalResources.cpu_weight.replace(' EOS', '')
+  // let price = bns.div(cpuWeight, cpuLimit.max.toString(), 10, 10)
+  // price = bns.mul(price, '1024')
+  // price = bns.div(price, '3', 10, 10)
+  // return price
+  return '0.2'
 }
 
 const readEosPricesCacheJson = () => {
