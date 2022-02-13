@@ -22,7 +22,7 @@
   },
   "homepage": "hhttps://github.com/chuckwilliams37/edge-eos-name-payment-api#readme",
   "dependencies": {
-    "ajv": "^6.5.5",
+    "ajv": "^6.12.3",
     "biggystring": "^1.1.10",
     "bitauth": "^0.3.2",
     "bitpay-rest": "^0.3.2",
