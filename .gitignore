@@ -2,9 +2,12 @@
 node_modules/
 lib/
 dist/
+logs/
 test/
 config/
+cache/
 serverConfig.json
+serverConfig.js
 .envconfig
 
 .DS_Store
