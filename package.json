@@ -34,7 +34,7 @@
     "express": "^4.16.4",
     "jsonschema": "^1.1.1",
     "nano": "^6.4.4",
-    "node-fetch": "^1.7.2",
+    "node-fetch": "^2.6.7",
     "promisify-node": "^0.4.0",
     "random-js": "^1.0.8",
     "rimraf": "^2.6.2",
