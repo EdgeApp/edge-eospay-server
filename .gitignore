@@ -4,7 +4,11 @@ lib/
 dist/
 test/
 config/
-serverConfig.json
+cache/
+cache
 .envconfig
-
+cache
 .DS_Store
+yarn-error.log
+
+.vscode
